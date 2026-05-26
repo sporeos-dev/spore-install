@@ -60,17 +60,3 @@ Logs declared in the plist:
 |------|---------|
 | `/Applications/Spore Shell.app` | `/usr/local/bin/spore-shell` via Terminal |
 | `/Applications/Spore Witness.app` | `/usr/local/bin/spore-witness` via Terminal |
-
----
-
-## Unix socket  ⚠️ MISMATCHED — needs alignment
-
-This is the active bug. The two repos currently disagree:
-
-| Repo | Socket path compiled in |
-|------|------------------------|
-| `spored` (daemon) | `/Library/Application Support/spore-os/run/spore.sock` |
-| `spore-cli/spore` (CLI) | `/var/run/spore/spore.sock` |
-
-**Pick one and update both repos to match.** The installer creates both parent
-directories. Either path is valid; they just need to be the same.
