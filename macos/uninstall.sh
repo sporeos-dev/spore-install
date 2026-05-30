@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2026 mharr
+# Copyright 2026 Matt Harrison
 # SPDX-License-Identifier: Apache-2.0
 
 # uninstall.sh — Spore OS macOS uninstaller
