@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 mharr
+# SPDX-License-Identifier: Apache-2.0
+
 # build.sh — Spore OS macOS CI/CD build script
 # Compiles all binaries as universal (arm64 + amd64) and stages them in dist/.
 # Does NOT require sudo. Requires the DEV environment variable to be set.

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 mharr
+# SPDX-License-Identifier: Apache-2.0
+
 # uninstall.sh — Spore OS macOS uninstaller
 # Must be run with sudo.  Requires explicit confirmation before making any
 # destructive changes.  All removal steps tolerate already-absent targets.

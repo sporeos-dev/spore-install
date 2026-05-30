@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 mharr
+# SPDX-License-Identifier: Apache-2.0
+
 # install.sh — Spore OS macOS installer
 # Must be run from the dist/ directory (or alongside dist/ contents) with sudo.
 # Safe to re-run as an upgrade — all steps are idempotent.
