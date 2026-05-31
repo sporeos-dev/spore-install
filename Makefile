@@ -2,7 +2,12 @@ SCRIPTS := macos/build.sh macos/install.sh macos/uninstall.sh
 
 .DEFAULT_GOAL := check
 
-.PHONY: check release
+.PHONY: setup check release
+
+setup:
+	@echo "==> Installing dependencies..."
+	@brew install shellcheck
+	@echo "==> Setup complete."
 
 check:
 	@echo "==> Running shellcheck..."
