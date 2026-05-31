@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main, "release/**"]
+  pull_request:
+    branches: [main, "release/**"]
+
+jobs:
+  check:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y shellcheck
+      - name: Install shellcheck (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install shellcheck
+      - run: make check
