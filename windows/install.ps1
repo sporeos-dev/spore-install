@@ -75,7 +75,7 @@ function Grant-LogonAsService ([string]$Username) {
             $content = $content -replace '(\[Privilege Rights\])', "`$1`r`nSeServiceLogonRight = *$sid"
         }
 
-        $content | Set-Content $tempInf
+        $content | Set-Content $tempInf -Encoding Unicode
         secedit /import /cfg $tempInf /db $tempDb /areas USER_RIGHTS /quiet
         secedit /configure /db $tempDb /areas USER_RIGHTS /quiet
     } finally {
@@ -96,14 +96,23 @@ if (-not (Get-LocalGroup -Name $ServiceGroup -ErrorAction SilentlyContinue)) {
 }
 
 $userExists = [bool](Get-LocalUser -Name $ServiceUser -ErrorAction SilentlyContinue)
-if (-not $userExists) {
+$svcExists  = [bool](Get-Service -Name $ServiceName -ErrorAction SilentlyContinue)
+
+# We need a password if the user does not exist, OR if the service does not exist (so we have to configure it)
+$needPassword = (-not $userExists) -or (-not $svcExists)
+
+if ($needPassword) {
     # Generate a cryptographically random password for the service account
     $rng      = [System.Security.Cryptography.RandomNumberGenerator]::Create()
     $bytes    = New-Object byte[] 32
     $rng.GetBytes($bytes)
     $script:ServicePassword = [Convert]::ToBase64String($bytes)
     $secPass  = ConvertTo-SecureString $script:ServicePassword -AsPlainText -Force
+} else {
+    $script:ServicePassword = $null
+}
 
+if (-not $userExists) {
     New-LocalUser -Name $ServiceUser `
                   -Password $secPass `
                   -Description 'Spore OS service account' `
@@ -115,8 +124,11 @@ if (-not $userExists) {
     Grant-LogonAsService $ServiceUser
     Success "Granted SeServiceLogonRight to '$ServiceUser'"
 } else {
-    Warn "User '$ServiceUser' already exists - skipping"
-    $script:ServicePassword = $null
+    Warn "User '$ServiceUser' already exists - skipping creation"
+    if ($needPassword) {
+         Set-LocalUser -Name $ServiceUser -Password $secPass
+         Success "Reset password for existing user '$ServiceUser' to configure service"
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -153,6 +165,22 @@ foreach ($dir in $Dirs) {
 # 3. Install binaries
 # ---------------------------------------------------------------------------
 Step "Installing binaries to $InstallDir"
+
+# Stop the spored service if running to unlock binaries
+$svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($svc -and $svc.Status -eq 'Running') {
+    Step "Stopping $ServiceName service to unlock binaries"
+    Stop-Service -Name $ServiceName -Force
+    Success "Service stopped"
+}
+
+# Stop any running node processes to unlock binaries
+foreach ($node in $Nodes) {
+    if (Get-Process -Name $node -ErrorAction SilentlyContinue) {
+        Step "Stopping running process: $node"
+        Stop-Process -Name $node -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Copy-Item "$DistDir\$Arch\spored.exe" "$InstallDir\spored.exe" -Force
 Success "Installed spored.exe"
@@ -213,9 +241,9 @@ if (-not $svcExists) {
     Success "Windows service registered"
 
     # Configure service to run as the dedicated service account when the user
-    # was freshly created and a password is available
+    # was freshly created/configured and a password is available
     if ($script:ServicePassword) {
-        sc.exe config $ServiceName obj= ".\$ServiceUser" password= $script:ServicePassword | Out-Null
+        sc.exe config $ServiceName "obj= .\$ServiceUser" "password= $script:ServicePassword" | Out-Null
         Success "Service account set to '.\$ServiceUser'"
     }
 } else {
