@@ -26,7 +26,7 @@ This is the release repo — it produces the distributable artifacts that end us
 | Platform | Status |
 | :--- | :--- |
 | macOS (arm64 + amd64 universal) | In development |
-| Linux | Planned |
+| Linux | In development |
 | Windows (amd64 + arm64) | In development |
 
 ---
@@ -45,6 +45,30 @@ To uninstall:
 
 ```sh
 sudo macos/uninstall.sh
+```
+
+---
+
+## Install (Linux)
+
+No packaged release yet. To install from a local build:
+
+```sh
+# Setup/install dependencies (shellcheck optional for development)
+make setup
+
+# Build-linux stages both amd64 and arm64 binaries in dist/
+make release-linux
+
+# Install to system paths (detects host architecture automatically),
+# creates spore system user, registers and starts spored systemd service
+sudo dist/install.sh
+```
+
+To uninstall:
+
+```sh
+sudo dist/uninstall.sh
 ```
 
 ---
