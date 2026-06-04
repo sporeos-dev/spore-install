@@ -13,7 +13,8 @@ else
     endif
 endif
 
-SCRIPTS := macos/build.sh macos/install.sh macos/uninstall.sh
+SCRIPTS := macos/build.sh macos/install.sh macos/uninstall.sh \
+           linux/build.sh linux/install.sh linux/uninstall.sh
 
 .DEFAULT_GOAL := check
 
@@ -36,6 +37,8 @@ else ifeq ($(PLATFORM),linux)
 		sudo dnf install -y shellcheck; \
 	elif command -v yum >/dev/null; then \
 		sudo yum install -y shellcheck; \
+	elif command -v zypper >/dev/null; then \
+		sudo zypper install -y shellcheck; \
 	elif command -v apk >/dev/null; then \
 		sudo apk add shellcheck; \
 	else \
@@ -76,8 +79,9 @@ else ifeq ($(PLATFORM),macos)
 	@macos/build.sh
 	@echo "==> Release build complete."
 else ifeq ($(PLATFORM),linux)
-	@echo "==> [Linux] Release build planned."
-	@exit 1
+	@echo "==> [Linux] Building release..."
+	@linux/build.sh
+	@echo "==> Release build complete."
 else
 	@echo "Unsupported platform: $(PLATFORM)"
 	@exit 1
