@@ -51,10 +51,12 @@ $ServiceName  = 'spored'
 $ServiceUser  = 'spore'
 $ServiceGroup = 'Spore OS'
 
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+
 # ---------------------------------------------------------------------------
-# 1. Stop the Windows service
+# 1. Stop the Windows service and node processes
 # ---------------------------------------------------------------------------
-Step "Stopping Windows service ($ServiceName)"
+Step "Stopping Windows service ($ServiceName) and node processes"
 
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($svc) {
@@ -66,6 +68,13 @@ if ($svc) {
     }
 } else {
     Warn "Service $ServiceName not found - skipping"
+}
+
+foreach ($node in $Nodes) {
+    if (Get-Process -Name $node -ErrorAction SilentlyContinue) {
+        Step "Stopping running process: $node"
+        Stop-Process -Name $node -Force -ErrorAction SilentlyContinue
+    }
 }
 
 # ---------------------------------------------------------------------------
