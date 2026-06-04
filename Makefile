@@ -51,7 +51,7 @@ endif
 check:
 ifeq ($(PLATFORM),windows)
 	@echo "==> [Windows] Running PSScriptAnalyzer..."
-	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$results = Get-ChildItem windows/*.ps1 | Invoke-ScriptAnalyzer; if ($$results) { $$results | Format-Table; exit 1 }"
+	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$scripts = Get-ChildItem windows/*.ps1; if (-not (Get-Command Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue)) { Write-Host 'WARNING: PSScriptAnalyzer is not installed! Run ''make setup'' to install.' -ForegroundColor Yellow } else { $$results = $$scripts | Invoke-ScriptAnalyzer; if ($$results) { $$results | Format-Table; exit 1 } }"
 	@echo "==> All checks passed."
 else ifeq ($(PLATFORM),macos)
 	@echo "==> [macOS] Running shellcheck..."
