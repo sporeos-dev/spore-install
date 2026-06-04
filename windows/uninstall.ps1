@@ -32,7 +32,7 @@ Write-Host "  +----------------------------------------------------------+" -For
 Write-Host "  |          SPORE OS - UNINSTALL CONFIRMATION               |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
 Write-Host "  |  This will permanently remove:                           |" -ForegroundColor Red
-Write-Host "  |    * The spored service and all CLI node binaries        |" -ForegroundColor Red
+Write-Host "  |    * The dev.sporeos.spored service and all CLI node binaries   |" -ForegroundColor Red
 Write-Host "  |    * All Spore OS system directories and data            |" -ForegroundColor Red
 Write-Host "  |    * The spore service account and group                 |" -ForegroundColor Red
 Write-Host "  |    * Spore Shell and Spore Witness Start Menu shortcuts  |" -ForegroundColor Red
@@ -47,7 +47,7 @@ $BinDir       = Join-Path $InstallDir 'bin'
 $DataDir      = Join-Path $env:ProgramData 'spore-os'
 $StartMenuDir = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
-$ServiceName  = 'spored'
+$ServiceName  = 'dev.sporeos.spored'
 $ServiceUser  = 'spore'
 $ServiceGroup = 'Spore OS'
 

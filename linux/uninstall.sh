@@ -45,7 +45,7 @@ echo -e "${NC}"
 read -r -p "  Type 'yes' to confirm: " CONFIRM
 [[ "$CONFIRM" == "yes" ]] || die "Aborted — you must type exactly: yes"
 
-SERVICE_LABEL="spored.service"
+SERVICE_LABEL="dev.sporeos.spored"
 SYSTEM_USER="spore"
 SYSTEM_GROUP="spore"
 APP_SUPPORT="/var/lib/spore-os"
@@ -55,18 +55,18 @@ NODES=(spore-shell spore-witness spore-log spore-dialog spore)
 # ---------------------------------------------------------------------------
 # 1. Stop and disable the systemd service
 # ---------------------------------------------------------------------------
-step "Stopping and disabling spored service"
+step "Stopping and disabling ${SERVICE_LABEL} service"
 
-if systemctl is-active "$SERVICE_LABEL" &>/dev/null; then
-    systemctl stop "$SERVICE_LABEL" && success "Service ${SERVICE_LABEL} stopped"
+if systemctl is-active "${SERVICE_LABEL}.service" &>/dev/null; then
+    systemctl stop "${SERVICE_LABEL}.service" && success "Service ${SERVICE_LABEL}.service stopped"
 else
-    warn "Service ${SERVICE_LABEL} is not active — skipping"
+    warn "Service ${SERVICE_LABEL}.service is not active — skipping"
 fi
 
-if systemctl is-enabled "$SERVICE_LABEL" &>/dev/null; then
-    systemctl disable "$SERVICE_LABEL" && success "Service ${SERVICE_LABEL} disabled"
+if systemctl is-enabled "${SERVICE_LABEL}.service" &>/dev/null; then
+    systemctl disable "${SERVICE_LABEL}.service" && success "Service ${SERVICE_LABEL}.service disabled"
 else
-    warn "Service ${SERVICE_LABEL} is not enabled — skipping"
+    warn "Service ${SERVICE_LABEL}.service is not enabled — skipping"
 fi
 
 # ---------------------------------------------------------------------------
@@ -79,11 +79,11 @@ if [[ -x /usr/local/bin/spored ]]; then
         success "spored uninstall completed"
     else
         warn "spored uninstall returned non-zero — attempting manual removal"
-        rm -f "/etc/systemd/system/spored.service" && success "Removed service file" || true
+        rm -f "/etc/systemd/system/${SERVICE_LABEL}.service" && success "Removed service file" || true
     fi
 else
     warn "/usr/local/bin/spored not found — removing service file directly"
-    rm -f "/etc/systemd/system/spored.service" && success "Removed service file" || true
+    rm -f "/etc/systemd/system/${SERVICE_LABEL}.service" && success "Removed service file" || true
 fi
 
 # Reload systemd configuration
