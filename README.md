@@ -27,7 +27,7 @@ This is the release repo — it produces the distributable artifacts as users in
 | :--- | :--- |
 | macOS (arm64 + amd64 universal) | In development |
 | Linux | Planned |
-| Windows | Planned |
+| Windows (amd64 + arm64) | In development |
 
 ---
 
@@ -49,11 +49,42 @@ sudo macos/uninstall.sh
 
 ---
 
+## Install (Windows)
+
+No packaged release yet. To install from a local build:
+
+```powershell
+cd windows
+.\build.ps1        # builds dist\ with amd64 and arm64 binaries
+```
+
+Then, in an elevated (Administrator) PowerShell:
+
+```powershell
+.\dist\install.ps1
+```
+
+To uninstall:
+
+```powershell
+.\dist\uninstall.ps1
+```
+
+> [!NOTE]
+> `build.ps1` requires the `DEV` environment variable to be set, pointing to
+> the directory that contains the `spore-os` and `spore-cli` sibling repos.
+> `install.ps1` and `uninstall.ps1` must be run in an **Administrator**
+> PowerShell session.
+
+---
+
 ## What gets installed
 
-- `spored` — the hub daemon, runs as system user `_spore` via launchd
+- `spored` — the hub daemon
+  - macOS: runs as `_spore` via launchd
+  - Windows: runs as the `spore` local service account via the Windows Service Manager
 - `spore`, `spore-shell`, `spore-dialog`, `spore-log`, `spore-witness` — core nodes
-- System paths defined in [PATHS.md](PATHS.md)
+- Platform-specific paths defined in [PATHS.md](PATHS.md)
 
 ---
 
