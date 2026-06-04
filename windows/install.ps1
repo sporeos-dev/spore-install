@@ -44,7 +44,7 @@ $ManifestDir  = Join-Path $DataDir 'manifests'
 $RunDir       = Join-Path $DataDir 'run'
 $StartMenuDir = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
-$ServiceName  = 'spored'
+$ServiceName  = 'dev.sporeos.spored'
 $ServiceUser  = 'spore'
 $ServiceGroup = 'Spore OS'
 
@@ -166,7 +166,7 @@ foreach ($dir in $Dirs) {
 # ---------------------------------------------------------------------------
 Step "Installing binaries to $InstallDir"
 
-# Stop the spored service if running to unlock binaries
+# Stop the dev.sporeos.spored service if running to unlock binaries
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq 'Running') {
     Step "Stopping $ServiceName service to unlock binaries"

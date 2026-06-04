@@ -55,7 +55,7 @@ SYSTEM_GROUP="spore"
 USER_ID=499
 GROUP_ID=499
 
-SERVICE_LABEL="spored"
+SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/var/lib/spore-os"
 
 NODES=(spore-shell spore-witness spore-log spore-dialog spore)
@@ -150,11 +150,11 @@ success "Hub manifest installed at ${APP_SUPPORT}/hub/"
 step "Registering systemd service (${SERVICE_LABEL})"
 
 # Ensure log files exist with correct permissions before starting
-touch /var/log/spore-os/spored.out.log /var/log/spore-os/spored.err.log
-chown "${SYSTEM_USER}:${SYSTEM_GROUP}" /var/log/spore-os/spored.out.log /var/log/spore-os/spored.err.log
-chmod 640 /var/log/spore-os/spored.out.log /var/log/spore-os/spored.err.log
+touch /var/log/spore-os/${SERVICE_LABEL}.out.log /var/log/spore-os/${SERVICE_LABEL}.err.log
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" /var/log/spore-os/${SERVICE_LABEL}.out.log /var/log/spore-os/${SERVICE_LABEL}.err.log
+chmod 640 /var/log/spore-os/${SERVICE_LABEL}.out.log /var/log/spore-os/${SERVICE_LABEL}.err.log
 
-cat <<EOF > /etc/systemd/system/spored.service
+cat <<EOF > /etc/systemd/system/${SERVICE_LABEL}.service
 [Unit]
 Description=Spore OS Daemon - spored
 After=network.target
@@ -166,8 +166,8 @@ Group=${SYSTEM_GROUP}
 WorkingDirectory=${APP_SUPPORT}
 ExecStart=/usr/local/bin/spored
 Restart=on-failure
-StandardOutput=append:/var/log/spore-os/spored.out.log
-StandardError=append:/var/log/spore-os/spored.err.log
+StandardOutput=append:/var/log/spore-os/${SERVICE_LABEL}.out.log
+StandardError=append:/var/log/spore-os/${SERVICE_LABEL}.err.log
 
 # Ensure daemon runtime directory /run/spore
 RuntimeDirectory=spore
@@ -178,9 +178,9 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable spored.service
-systemctl restart spored.service
-success "systemd service spored.service registered and started"
+systemctl enable ${SERVICE_LABEL}.service
+systemctl restart ${SERVICE_LABEL}.service
+success "systemd service ${SERVICE_LABEL}.service registered and started"
 
 # ---------------------------------------------------------------------------
 # 6. Install node manifests, then restart daemon
@@ -207,7 +207,7 @@ else
     done
 
     step "Restarting daemon to load manifests"
-    systemctl restart spored.service
+    systemctl restart ${SERVICE_LABEL}.service
     success "Daemon restarted"
 fi
 

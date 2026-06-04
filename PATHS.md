@@ -76,7 +76,7 @@ paths — no hardcoded alternatives.
 |------|-------|
 | Service account | `spore` (local user) |
 | Service group | `Spore OS` (local group) |
-| Windows service name | `spored` |
+| Windows service name | `dev.sporeos.spored` |
 
 ---
 
@@ -118,7 +118,7 @@ copies the matching binaries.
 
 | Item | Value |
 |------|-------|
-| Service name | `spored` |
+| Service name | `dev.sporeos.spored` |
 | Registered by | `spored install` (self-registration) |
 | Runs as | `.\spore` (local service account) |
 
@@ -147,7 +147,7 @@ paths — no hardcoded alternatives.
 |------|-------|
 | System user | `spore` (UID 499 if available, or dynamic) |
 | System group | `spore` (GID 499 if available, or dynamic) |
-| systemd service | `spored.service` |
+| systemd service | `dev.sporeos.spored.service` |
 
 ---
 
@@ -181,11 +181,11 @@ paths — no hardcoded alternatives.
 
 | Path | Purpose |
 |------|---------|
-| `/etc/systemd/system/spored.service` | systemd service description file |
+| `/etc/systemd/system/dev.sporeos.spored.service` | systemd service description file |
 
 Logs declared in the service file:
-- stdout → `/var/log/spore-os/spored.out.log`
-- stderr → `/var/log/spore-os/spored.err.log`
+- stdout → `/var/log/spore-os/dev.sporeos.spored.out.log`
+- stderr → `/var/log/spore-os/dev.sporeos.spored.err.log`
 
 ---
 
