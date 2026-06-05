@@ -96,7 +96,7 @@ Step "Building CLI nodes"
 
 foreach ($node in $Nodes) {
     Write-Host "  > $node"
-    $NodeDir = Join-Path $env:DEV "spore-cli\$node"
+    $NodeDir = Join-Path $env:DEV "spore-core-nodes\$node"
     if (-not (Test-Path $NodeDir)) { Die "Node source not found at $NodeDir" }
 
     Push-Location $NodeDir
