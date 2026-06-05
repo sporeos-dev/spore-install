@@ -86,7 +86,7 @@ step "Building CLI nodes"
 
 for node in "${NODES[@]}"; do
     echo "  ▸ $node"
-    NODE_DIR="$DEV/spore-cli/$node"
+    NODE_DIR="$DEV/spore-core-nodes/$node"
     [[ -d "$NODE_DIR" ]] || die "Node source not found at $NODE_DIR"
 
     (
