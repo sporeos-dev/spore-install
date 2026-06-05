@@ -96,7 +96,7 @@ To uninstall:
 
 > [!NOTE]
 > `build.ps1` requires the `DEV` environment variable to be set, pointing to
-> the directory that contains the `spore-os` and `spore-cli` sibling repos.
+> the directory that contains the `spore-os` and `spore-core-nodes` sibling repos.
 > `install.ps1` and `uninstall.ps1` must be run in an **Administrator**
 > PowerShell session.
 

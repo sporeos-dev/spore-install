@@ -1,7 +1,7 @@
 # Spore OS — macOS Installed Paths
 
 This document is the source of truth for every path that `install.sh` creates
-or writes to. All other repos (`spored`, `spore-cli/*`) must use these exact
+or writes to. All other repos (`spored`, `spore-core-nodes/*`) must use these exact
 paths — no hardcoded alternatives.
 
 ---
@@ -65,7 +65,7 @@ Logs declared in the plist:
 # Spore OS — Windows Installed Paths
 
 This document is the source of truth for every path that `install.ps1` creates
-or writes to. All other repos (`spored`, `spore-cli/*`) must use these exact
+or writes to. All other repos (`spored`, `spore-core-nodes/*`) must use these exact
 paths — no hardcoded alternatives.
 
 ---
@@ -136,7 +136,7 @@ copies the matching binaries.
 # Spore OS — Linux Installed Paths
 
 This document is the source of truth for every path that `install.sh` (Linux) creates
-or writes to. All other repos (`spored`, `spore-cli/*`) must use these exact
+or writes to. All other repos (`spored`, `spore-core-nodes/*`) must use these exact
 paths — no hardcoded alternatives.
 
 ---
