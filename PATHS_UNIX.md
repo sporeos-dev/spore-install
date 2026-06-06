@@ -38,7 +38,6 @@ paths — no hardcoded alternatives.
 | `/usr/local/bin/spore-shell` | Shell node |
 | `/usr/local/bin/spore-witness` | Witness node |
 | `/usr/local/bin/spore-log` | Log node |
-| `/usr/local/bin/spore-dialog` | Dialog node |
 
 ---
 
@@ -103,7 +102,6 @@ paths — no hardcoded alternatives.
 | `/usr/local/bin/spore-shell` | Shell node |
 | `/usr/local/bin/spore-witness` | Witness node |
 | `/usr/local/bin/spore-log` | Log node |
-| `/usr/local/bin/spore-dialog` | Dialog node |
 
 ---
 
