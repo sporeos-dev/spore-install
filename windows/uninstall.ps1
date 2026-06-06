@@ -39,7 +39,7 @@ $BinDir       = Join-Path $InstallDir 'bin'
 $DataDir      = $InstallDir
 $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
 
 # ---------------------------------------------------------------------------
 # 1. Stop running daemon and node processes

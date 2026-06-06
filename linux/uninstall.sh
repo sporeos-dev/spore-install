@@ -50,7 +50,7 @@ SYSTEM_USER="spore"
 SYSTEM_GROUP="spore"
 APP_SUPPORT="/var/lib/spore-os"
 
-NODES=(spore-shell spore-witness spore-log spore-dialog spore)
+NODES=(spore-shell spore-witness spore-log spore)
 
 # ---------------------------------------------------------------------------
 # 1. Stop and disable the systemd service

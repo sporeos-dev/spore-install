@@ -51,7 +51,7 @@ SYSTEM_USER="_spore"
 SYSTEM_GROUP="_spore"
 APP_SUPPORT="/Library/Application Support/spore-os"
 
-NODES=(spore-shell spore-witness spore-log spore-dialog spore)
+NODES=(spore-shell spore-witness spore-log spore)
 
 # ---------------------------------------------------------------------------
 # 1. Stop the LaunchDaemon

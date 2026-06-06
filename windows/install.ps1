@@ -38,7 +38,7 @@ $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Sp
 
 $env:SPORE_DATA_DIR = $InstallDir
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
 
 # ---------------------------------------------------------------------------
 # 1. Create required directories
