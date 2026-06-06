@@ -51,7 +51,7 @@ $ServiceName  = 'dev.sporeos.spored'
 $ServiceUser  = 'spore'
 $ServiceGroup = 'Spore OS'
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
 
 # ---------------------------------------------------------------------------
 # 1. Stop the Windows service and node processes

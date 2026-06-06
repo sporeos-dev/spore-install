@@ -25,7 +25,7 @@ $ScriptDir = $PSScriptRoot
 $RepoRoot  = Split-Path -Parent $ScriptDir
 $DistDir   = Join-Path $RepoRoot 'dist'
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
 $Archs = @('amd64', 'arm64')
 
 # ---------------------------------------------------------------------------

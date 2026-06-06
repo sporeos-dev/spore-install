@@ -48,7 +48,7 @@ $ServiceName  = 'dev.sporeos.spored'
 $ServiceUser  = 'spore'
 $ServiceGroup = 'Spore OS'
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
 
 # ---------------------------------------------------------------------------
 # Helper: grant SeServiceLogonRight to a local user via secedit
