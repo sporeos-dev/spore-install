@@ -1,9 +1,8 @@
 # Copyright 2026 Matt Harrison
 # SPDX-License-Identifier: Apache-2.0
 
-# uninstall.ps1 — Spore OS Windows uninstaller
-# Must be run as Administrator.  Requires explicit confirmation before making
-# any destructive changes.  All removal steps tolerate already-absent targets.
+# uninstall.ps1 — Spore OS Windows uninstaller (User-level)
+# Safe to run — tolerate already-absent targets.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -17,24 +16,14 @@ function Warn    ([string]$msg) { Write-Host "!! $msg" -ForegroundColor Yellow }
 function Die     ([string]$msg) { Write-Host "ERROR: $msg" -ForegroundColor Red; exit 1 }
 
 # ---------------------------------------------------------------------------
-# Must be Administrator
-# ---------------------------------------------------------------------------
-$principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Die "uninstall.ps1 must be run as Administrator.  Re-run in an elevated PowerShell."
-}
-
-# ---------------------------------------------------------------------------
 # Confirmation
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
 Write-Host "  |          SPORE OS - UNINSTALL CONFIRMATION               |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
-Write-Host "  |  This will permanently remove:                           |" -ForegroundColor Red
-Write-Host "  |    * The dev.sporeos.spored service and all CLI node binaries   |" -ForegroundColor Red
-Write-Host "  |    * All Spore OS system directories and data            |" -ForegroundColor Red
-Write-Host "  |    * The spore service account and group                 |" -ForegroundColor Red
+Write-Host "  |  This will permanently remove (User-space):              |" -ForegroundColor Red
+Write-Host "  |    * All user-space binaries and data                    |" -ForegroundColor Red
 Write-Host "  |    * Spore Shell and Spore Witness Start Menu shortcuts  |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
 Write-Host ""
@@ -42,80 +31,52 @@ Write-Host ""
 $Confirm = Read-Host "  Type 'yes' to confirm"
 if ($Confirm -ne 'yes') { Die "Aborted - you must type exactly: yes" }
 
-$InstallDir   = Join-Path $env:ProgramFiles 'spore-os'
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+$InstallDir   = Join-Path $env:LOCALAPPDATA 'spore-os'
 $BinDir       = Join-Path $InstallDir 'bin'
-$DataDir      = Join-Path $env:ProgramData 'spore-os'
-$StartMenuDir = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Spore OS'
+$DataDir      = $InstallDir
+$StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
-$ServiceName  = 'dev.sporeos.spored'
-$ServiceUser  = 'spore'
-$ServiceGroup = 'Spore OS'
-
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore-dialog', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
 
 # ---------------------------------------------------------------------------
-# 1. Stop the Windows service and node processes
+# 1. Stop running daemon and node processes
 # ---------------------------------------------------------------------------
-Step "Stopping Windows service ($ServiceName) and node processes"
+Step "Stopping software processes"
 
-$svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-if ($svc) {
-    if ($svc.Status -eq 'Running') {
-        Stop-Service -Name $ServiceName -Force
-        Success "Service $ServiceName stopped"
-    } else {
-        Warn "Service $ServiceName is not running - skipping stop"
-    }
-} else {
-    Warn "Service $ServiceName not found - skipping"
+$userSpored = Get-Process -Name 'spored' -ErrorAction SilentlyContinue
+if ($userSpored) {
+    Stop-Process -Name 'spored' -Force -ErrorAction SilentlyContinue
+    Success "User daemon stopped"
 }
 
 foreach ($node in $Nodes) {
     if (Get-Process -Name $node -ErrorAction SilentlyContinue) {
-        Step "Stopping running process: $node"
         Stop-Process -Name $node -Force -ErrorAction SilentlyContinue
+        Success "Stopped running process: $node"
     }
 }
 
 # ---------------------------------------------------------------------------
-# 2. Unregister the service via spored uninstall
+# 2. Remove directories
 # ---------------------------------------------------------------------------
-Step "Unregistering Windows service"
+Step "Removing directories"
 
-$SporedExe = Join-Path $InstallDir 'spored.exe'
-if (Test-Path $SporedExe) {
-    & $SporedExe uninstall
-    if ($LASTEXITCODE -eq 0) {
-        Success "spored uninstall completed"
-    } else {
-        Warn "spored uninstall returned $LASTEXITCODE - attempting manual removal"
-        sc.exe delete $ServiceName | Out-Null
-        Success "Service $ServiceName removed via sc.exe"
+if (Test-Path $InstallDir) {
+    try {
+        Remove-Item -Recurse -Force $InstallDir
+        Success "Removed $InstallDir"
+    } catch {
+        Warn "Could not remove some files in $InstallDir (they may be in use): $_"
     }
 } else {
-    Warn "$SporedExe not found - removing service directly"
-    if ($svc) {
-        sc.exe delete $ServiceName | Out-Null
-        Success "Service $ServiceName removed via sc.exe"
-    }
+    Warn "$InstallDir not found - skipping"
 }
 
 # ---------------------------------------------------------------------------
-# 3. Remove install and data directories
-# ---------------------------------------------------------------------------
-Step "Removing system directories"
-
-foreach ($path in @($InstallDir, $DataDir)) {
-    if (Test-Path $path) {
-        Remove-Item -Recurse -Force $path
-        Success "Removed $path"
-    } else {
-        Warn "$path not found - skipping"
-    }
-}
-
-# ---------------------------------------------------------------------------
-# 4. Remove Start Menu shortcuts
+# 3. Remove Start Menu shortcuts
 # ---------------------------------------------------------------------------
 Step "Removing Start Menu shortcuts"
 
@@ -138,43 +99,24 @@ if (Test-Path $StartMenuDir) {
 }
 
 # ---------------------------------------------------------------------------
-# 5. Remove install directories from the system PATH
+# 4. Remove install directories from the user PATH
 # ---------------------------------------------------------------------------
-Step "Cleaning system PATH"
+Step "Cleaning user PATH"
 
-$machinePath   = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine')
+$currentPath = [System.Environment]::GetEnvironmentVariable('PATH', 'User')
 $pathsToRemove = @($InstallDir, $BinDir)
-$parts         = $machinePath -split ';' | Where-Object { $_ -ne '' -and $_ -notin $pathsToRemove }
+$parts         = $currentPath -split ';' | Where-Object { $_ -ne '' -and $_ -notin $pathsToRemove }
 $newPath       = $parts -join ';'
 
-if ($newPath -ne $machinePath) {
-    [System.Environment]::SetEnvironmentVariable('PATH', $newPath, 'Machine')
-    $env:PATH = $newPath
-    foreach ($p in $pathsToRemove) {
-        if ($machinePath -like "*$p*") { Success "Removed from PATH: $p" }
-    }
+if ($newPath -ne $currentPath) {
+    [System.Environment]::SetEnvironmentVariable('PATH', $newPath, 'User')
+    Success "Updated user PATH registry"
 } else {
-    Warn "No Spore OS entries found in PATH - skipping"
+    Warn "No Spore OS entries found in user PATH - skipping"
 }
 
-# ---------------------------------------------------------------------------
-# 6. Delete system user and group
-# ---------------------------------------------------------------------------
-Step "Removing service account and group"
-
-if (Get-LocalUser -Name $ServiceUser -ErrorAction SilentlyContinue) {
-    Remove-LocalUser -Name $ServiceUser
-    Success "User '$ServiceUser' deleted"
-} else {
-    Warn "User '$ServiceUser' not found - skipping"
-}
-
-if (Get-LocalGroup -Name $ServiceGroup -ErrorAction SilentlyContinue) {
-    Remove-LocalGroup -Name $ServiceGroup
-    Success "Group '$ServiceGroup' deleted"
-} else {
-    Warn "Group '$ServiceGroup' not found - skipping"
-}
+# Remove SPORE_DATA_DIR environment variable
+[System.Environment]::SetEnvironmentVariable('SPORE_DATA_DIR', $null, 'User')
 
 # ---------------------------------------------------------------------------
 # Done

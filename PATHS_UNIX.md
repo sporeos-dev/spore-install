@@ -1,4 +1,4 @@
-# Spore OS — macOS Installed Paths
+# Spore OS — unix-like Installed Paths (macOS & Linux)
 
 This document is the source of truth for every path that `install.sh` creates
 or writes to. All other repos (`spored`, `spore-core-nodes/*`) must use these exact
@@ -6,7 +6,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## System identity
+## macOS System identity
 
 | What | Value |
 |------|-------|
@@ -16,7 +16,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## Directories (created by installer, owned by `_spore:_spore`)
+## macOS Directories (created by installer, owned by `_spore:_spore`)
 
 | Path | Purpose |
 |------|---------|
@@ -29,7 +29,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## Binaries (installed to `/usr/local/bin`, mode 755)
+## macOS Binaries (installed to `/usr/local/bin`, mode 755)
 
 | Binary | Source |
 |--------|--------|
@@ -42,7 +42,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## LaunchDaemon
+## macOS LaunchDaemon
 
 | Path | Purpose |
 |------|---------|
@@ -54,82 +54,12 @@ Logs declared in the plist:
 
 ---
 
-## App bundles
+## macOS App bundles
 
 | Path | Launches |
 |------|---------|
 | `/Applications/Spore Shell.app` | `/usr/local/bin/spore-shell` via Terminal |
 | `/Applications/Spore Witness.app` | `/usr/local/bin/spore-witness` via Terminal |
----
-
-# Spore OS — Windows Installed Paths
-
-This document is the source of truth for every path that `install.ps1` creates
-or writes to. All other repos (`spored`, `spore-core-nodes/*`) must use these exact
-paths — no hardcoded alternatives.
-
----
-
-## System identity
-
-| What | Value |
-|------|-------|
-| Service account | `spore` (local user) |
-| Service group | `Spore OS` (local group) |
-| Windows service name | `dev.sporeos.spored` |
-
----
-
-## Directories (created by installer, `spore` account has `FullControl`)
-
-| Path | Purpose |
-|------|---------|
-| `%ProgramFiles%\spore-os` | Daemon binary root |
-| `%ProgramFiles%\spore-os\bin` | CLI node binaries |
-| `%ProgramData%\spore-os\data` | Persistent daemon data |
-| `%ProgramData%\spore-os\hub` | Hub manifests |
-| `%ProgramData%\spore-os\manifests` | Node manifests |
-| `%ProgramData%\spore-os\run` | Runtime files (socket lives here) |
-| `%ProgramData%\spore-os\logs` | Daemon and node log files |
-
----
-
-## Binaries (installed to `%ProgramFiles%\spore-os\` and `\bin\`)
-
-| Binary | Source |
-|--------|---------|
-| `%ProgramFiles%\spore-os\spored.exe` | `spored` daemon |
-| `%ProgramFiles%\spore-os\bin\spore.exe` | Main CLI entry point |
-| `%ProgramFiles%\spore-os\bin\spore-shell.exe` | Shell node |
-| `%ProgramFiles%\spore-os\bin\spore-witness.exe` | Witness node |
-| `%ProgramFiles%\spore-os\bin\spore-log.exe` | Log node |
-| `%ProgramFiles%\spore-os\bin\spore-dialog.exe` | Dialog node |
-
-Both `%ProgramFiles%\spore-os` and `%ProgramFiles%\spore-os\bin` are appended
-to the **system** `PATH` by the installer.
-
-`dist\` is split by architecture: `dist\amd64\` and `dist\arm64\`. The
-installer detects the host architecture via `$env:PROCESSOR_ARCHITECTURE` and
-copies the matching binaries.
-
----
-
-## Windows service
-
-| Item | Value |
-|------|-------|
-| Service name | `dev.sporeos.spored` |
-| Registered by | `spored install` (self-registration) |
-| Runs as | `.\spore` (local service account) |
-
----
-
-## Start Menu shortcuts
-
-| Path | Launches |
-|------|----------|
-| `%ProgramData%\Microsoft\Windows\Start Menu\Programs\Spore OS\Spore Shell.lnk` | `spore-shell.exe` |
-| `%ProgramData%\Microsoft\Windows\Start Menu\Programs\Spore OS\Spore Witness.lnk` | `spore-witness.exe` |
 
 ---
 
@@ -141,7 +71,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## System identity
+## Linux System identity
 
 | What | Value |
 |------|-------|
@@ -151,7 +81,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## Directories (created by installer, owned by `spore:spore`)
+## Linux Directories (created by installer, owned by `spore:spore`)
 
 | Path | Purpose |
 |------|---------|
@@ -164,7 +94,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## Binaries (installed to `/usr/local/bin`, mode 755)
+## Linux Binaries (installed to `/usr/local/bin`, mode 755)
 
 | Binary | Source |
 |--------|--------|
@@ -177,7 +107,7 @@ paths — no hardcoded alternatives.
 
 ---
 
-## systemd Service Unit
+## Linux systemd Service Unit
 
 | Path | Purpose |
 |------|---------|
@@ -189,7 +119,7 @@ Logs declared in the service file:
 
 ---
 
-## XDG Desktop Entries
+## Linux XDG Desktop Entries
 
 | Path | Launches |
 |------|---------|

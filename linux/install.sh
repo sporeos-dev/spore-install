@@ -58,7 +58,7 @@ GROUP_ID=499
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/var/lib/spore-os"
 
-NODES=(spore-shell spore-witness spore-log spore-dialog spore)
+NODES=(spore-shell spore-witness spore-log spore)
 
 # ---------------------------------------------------------------------------
 # 1. Create system group and user

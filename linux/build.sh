@@ -32,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST_DIR="$REPO_ROOT/dist"
 
-NODES=(spore-shell spore-witness spore-log spore-dialog spore)
+NODES=(spore-shell spore-witness spore-log spore)
 ARCHS=(amd64 arm64)
 
 # ---------------------------------------------------------------------------
