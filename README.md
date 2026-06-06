@@ -82,23 +82,24 @@ cd windows
 .\build.ps1        # builds dist\ with amd64 and arm64 binaries
 ```
 
-Then, in an elevated (Administrator) PowerShell:
+Then, run the user-level installer script:
 
 ```powershell
-.\dist\install.ps1
+powershell -ExecutionPolicy Bypass -File .\dist\install.ps1
 ```
 
 To uninstall:
 
 ```powershell
-.\dist\uninstall.ps1
+powershell -ExecutionPolicy Bypass -File .\dist\uninstall.ps1
 ```
 
 > [!NOTE]
 > `build.ps1` requires the `DEV` environment variable to be set, pointing to
 > the directory that contains the `spore-os` and `spore-core-nodes` sibling repos.
-> `install.ps1` and `uninstall.ps1` must be run in an **Administrator**
-> PowerShell session.
+> `install.ps1` and `uninstall.ps1` run at the user-space privilege level and
+> do **not** require administrator / elevated privileges. Remember to restart your terminal session
+> after installing to refresh your active environment's `PATH`!
 
 ---
 
@@ -106,9 +107,9 @@ To uninstall:
 
 - `spored` — the hub daemon
   - macOS: runs as `_spore` via launchd
-  - Windows: runs as the `spore` local service account via the Windows Service Manager
+  - Windows: runs as a background process under the current user's security context
 - `spore`, `spore-shell`, `spore-dialog`, `spore-log`, `spore-witness` — core nodes
-- Platform-specific paths defined in [PATHS.md](PATHS.md)
+- Platform-specific paths defined in [PATHS_UNIX.md](PATHS_UNIX.md) and [PATHS_WINDOWS.md](PATHS_WINDOWS.md)
 
 ---
 
