@@ -15,3 +15,4 @@ dist/
 *.log
 
 .private/
+spore-os-install-macos.tar.gz
