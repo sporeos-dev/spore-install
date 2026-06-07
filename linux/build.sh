@@ -28,6 +28,16 @@ die()     { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 [[ -n "${DEV:-}" ]] || die "DEV environment variable is not set. Aborting."
 
+# ---------------------------------------------------------------------------
+# Parse arguments
+# ---------------------------------------------------------------------------
+RELEASE_MODE=false
+for arg in "$@"; do
+    if [[ "$arg" == "release" ]]; then
+        RELEASE_MODE=true
+    fi
+done
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST_DIR="$REPO_ROOT/dist"
@@ -120,6 +130,15 @@ step "Generating SHA-256 checksums"
     done > checksums.sha256
 )
 success "SHA-256 checksums written to dist/checksums.sha256"
+
+# ---------------------------------------------------------------------------
+# 5. Package release archive (if requested)
+# ---------------------------------------------------------------------------
+if [[ "$RELEASE_MODE" == "true" ]]; then
+    step "Packaging release archive"
+    tar -czf "$REPO_ROOT/spore-os-install-linux.tar.gz" -C "$REPO_ROOT" dist
+    success "Release archive created: spore-os-install-linux.tar.gz"
+fi
 
 # ---------------------------------------------------------------------------
 # Done

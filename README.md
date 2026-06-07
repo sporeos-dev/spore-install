@@ -108,7 +108,7 @@ powershell -ExecutionPolicy Bypass -File .\dist\uninstall.ps1
 - `spored` — the hub daemon
   - macOS: runs as `_spore` via launchd
   - Windows: runs as a background process under the current user's security context
-- `spore`, `spore-shell`, `spore-dialog`, `spore-log`, `spore-witness` — core nodes
+- `spore`, `spore-shell`, `spore-log`, `spore-witness` — core nodes
 - Platform-specific paths defined in [PATHS_UNIX.md](PATHS_UNIX.md) and [PATHS_WINDOWS.md](PATHS_WINDOWS.md)
 
 ---

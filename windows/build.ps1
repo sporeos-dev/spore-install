@@ -5,6 +5,11 @@
 # Compiles all binaries for both amd64 and arm64 and stages them in dist\.
 # Does NOT require elevation.  Requires the DEV environment variable to be set.
 
+param(
+    [Parameter(Position=0)]
+    [string]$Mode = ""
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -144,6 +149,17 @@ foreach ($arch in $Archs) {
 
 $lines | Set-Content $checksumFile -Encoding UTF8
 Success "checksums.sha256 written"
+
+# ---------------------------------------------------------------------------
+# 5. Package release archive (if requested)
+# ---------------------------------------------------------------------------
+if ($Mode -eq "release") {
+    Step "Packaging release archive"
+    $archivePath = Join-Path $RepoRoot "spore-os-install-windows.zip"
+    if (Test-Path $archivePath) { Remove-Item -Force $archivePath }
+    Compress-Archive -Path "$DistDir" -DestinationPath "$archivePath" -Force
+    Success "Release archive created: spore-os-install-windows.zip"
+}
 
 # ---------------------------------------------------------------------------
 # Summary
