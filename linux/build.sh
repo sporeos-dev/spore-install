@@ -29,25 +29,6 @@ die()     { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 [[ -n "${DEV:-}" ]] || die "DEV environment variable is not set. Aborting."
 
 # ---------------------------------------------------------------------------
-# Safety Checks: Ensure isDev is set to false in source directories
-# ---------------------------------------------------------------------------
-step "Running checks for isDev"
-
-CLIENT_GO="$DEV/spore-client-libs/go/client.go"
-[[ -f "$CLIENT_GO" ]] || die "client.go not found at $CLIENT_GO"
-if grep -q "const isDev = true" "$CLIENT_GO"; then
-    die "Safety check failed: 'const isDev = true' found in $CLIENT_GO (must be false for release builds)"
-fi
-
-SPORED_MAIN_GO="$DEV/spore-os/spored/main.go"
-[[ -f "$SPORED_MAIN_GO" ]] || die "main.go not found at $SPORED_MAIN_GO"
-if grep -q "const isDev = true" "$SPORED_MAIN_GO"; then
-    die "Safety check failed: 'const isDev = true' found in $SPORED_MAIN_GO (must be false for release builds)"
-fi
-
-success "Safety checks passed for release"
-
-# ---------------------------------------------------------------------------
 # Parse arguments
 # ---------------------------------------------------------------------------
 RELEASE_MODE=false

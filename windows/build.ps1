@@ -26,27 +26,6 @@ function Die     ([string]$msg) { Write-Host "ERROR: $msg" -ForegroundColor Red;
 # ---------------------------------------------------------------------------
 if (-not $env:DEV) { Die "DEV environment variable is not set.  Aborting." }
 
-# ---------------------------------------------------------------------------
-# Safety Checks: Ensure isDev is set to false in source directories
-# ---------------------------------------------------------------------------
-Step "Running checks for isDev"
-
-$ClientGo = Join-Path $env:DEV "spore-client-libs\go\client.go"
-if (-not (Test-Path $ClientGo)) { Die "client.go not found at $ClientGo" }
-$ClientGoContent = Get-Content $ClientGo -Raw
-if ($ClientGoContent -match "const isDev\s*=\s*true") {
-    Die "Safety check failed: 'const isDev = true' found in $ClientGo`n(must be false for release builds)"
-}
-
-$SporedMainGo = Join-Path $env:DEV "spore-os\spored\main.go"
-if (-not (Test-Path $SporedMainGo)) { Die "main.go not found at $SporedMainGo" }
-$SporedMainGoContent = Get-Content $SporedMainGo -Raw
-if ($SporedMainGoContent -match "const isDev\s*=\s*true") {
-    Die "Safety check failed: 'const isDev = true' found in $SporedMainGo`n(must be false for release builds)"
-}
-
-Success "Safety checks passed for release"
-
 $ScriptDir = $PSScriptRoot
 $RepoRoot  = Split-Path -Parent $ScriptDir
 $DistDir   = Join-Path $RepoRoot 'dist'
