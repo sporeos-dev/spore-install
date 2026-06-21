@@ -2,8 +2,8 @@
 # Copyright 2026 Matt Harrison
 # SPDX-License-Identifier: Apache-2.0
 
-# build.sh — Spore OS macOS CI/CD build script
-# Compiles all binaries as universal (arm64 + amd64) and stages them in dist/.
+# develop.sh — Spore OS macOS development build script
+# Compiles all binaries with isDev=true, stages them in dev/.
 # Does NOT require sudo. Requires the DEV environment variable to be set.
 
 set -euo pipefail
@@ -28,48 +28,62 @@ die()     { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 [[ -n "${DEV:-}" ]] || die "DEV environment variable is not set. Aborting."
 
-# ---------------------------------------------------------------------------
-# Safety Checks: Ensure isDev is set to false in source directories
-# ---------------------------------------------------------------------------
-step "Running checks for isDev"
-
-CLIENT_GO="$DEV/spore-client-libs/go/client.go"
-[[ -f "$CLIENT_GO" ]] || die "client.go not found at $CLIENT_GO"
-if grep -q "const isDev = true" "$CLIENT_GO"; then
-    die "Safety check failed: 'const isDev = true' found in $CLIENT_GO (must be false for release builds)"
-fi
-
-SPORED_MAIN_GO="$DEV/spore-os/spored/main.go"
-[[ -f "$SPORED_MAIN_GO" ]] || die "main.go not found at $SPORED_MAIN_GO"
-if grep -q "const isDev = true" "$SPORED_MAIN_GO"; then
-    die "Safety check failed: 'const isDev = true' found in $SPORED_MAIN_GO (must be false for release builds)"
-fi
-
-success "Safety checks passed for release"
-
-# ---------------------------------------------------------------------------
-# Parse arguments
-# ---------------------------------------------------------------------------
-RELEASE_MODE=false
-for arg in "$@"; do
-    if [[ "$arg" == "release" ]]; then
-        RELEASE_MODE=true
-    fi
-done
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DIST_DIR="$REPO_ROOT/dist"
+DEV_DIR="$REPO_ROOT/dev"
 
 NODES=(spore-shell spore-witness spore-log spore)
 
+CLIENT_GO="$DEV/spore-client-libs/go/client.go"
+SPORED_MAIN_GO="$DEV/spore-os/spored/main.go"
+
 # ---------------------------------------------------------------------------
-# Prepare dist/ layout
+# Helper: temporarily enable/disable isDev in third party & daemon repos
 # ---------------------------------------------------------------------------
-step "Preparing dist/ directory"
-rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR/bin" "$DIST_DIR/nodes"
-success "dist/ created at $DIST_DIR"
+enable_isdev() {
+    step "Setting isDev=true in source files prior to build"
+    [[ -f "$CLIENT_GO" ]] || die "client.go not found at $CLIENT_GO"
+    [[ -f "$SPORED_MAIN_GO" ]] || die "main.go not found at $SPORED_MAIN_GO"
+
+    python3 -c "
+import sys
+for path in [sys.argv[1], sys.argv[2]]:
+    with open(path, 'r') as f:
+        content = f.read()
+    content = content.replace('const isDev = false', 'const isDev = true')
+    with open(path, 'w') as f:
+        f.write(content)
+" "$CLIENT_GO" "$SPORED_MAIN_GO"
+    success "isDev=true set in client.go and main.go"
+}
+
+disable_isdev() {
+    step "Restoring isDev=false in source files"
+    if [[ -f "$CLIENT_GO" ]] && [[ -f "$SPORED_MAIN_GO" ]]; then
+        python3 -c "
+import sys
+for path in [sys.argv[1], sys.argv[2]]:
+    with open(path, 'r') as f:
+        content = f.read()
+    content = content.replace('const isDev = true', 'const isDev = false')
+    with open(path, 'w') as f:
+        f.write(content)
+" "$CLIENT_GO" "$SPORED_MAIN_GO"
+        success "isDev=false restored in source files"
+    fi
+}
+
+# Ensure isDev is restored even on script failure
+trap disable_isdev EXIT
+enable_isdev
+
+# ---------------------------------------------------------------------------
+# Prepare dev/ layout
+# ---------------------------------------------------------------------------
+step "Preparing dev/ directory"
+rm -rf "$DEV_DIR"
+mkdir -p "$DEV_DIR/bin" "$DEV_DIR/nodes"
+success "dev/ created at $DEV_DIR"
 
 # ---------------------------------------------------------------------------
 # Helper: build a universal macOS binary via lipo
@@ -90,7 +104,7 @@ build_universal() {
 # ---------------------------------------------------------------------------
 # 1. Build spored daemon
 # ---------------------------------------------------------------------------
-step "Building spored daemon"
+step "Building spored daemon for development"
 
 SPORED_DIR="$DEV/spore-os/spored"
 [[ -d "$SPORED_DIR" ]] || die "spored source not found at $SPORED_DIR"
@@ -100,16 +114,16 @@ SPORED_DIR="$DEV/spore-os/spored"
     echo "  Running tests..."
     go test ./... -count=1 || die "spored tests failed — aborting build"
     build_universal spored
-    cp spored                        "$DIST_DIR/spored"
-    cp spored.manifest.spore.yaml    "$DIST_DIR/spored.manifest.spore.yaml"
+    cp spored                        "$DEV_DIR/spored"
+    cp spored.manifest.spore.yaml    "$DEV_DIR/spored.manifest.spore.yaml"
     rm -f spored
 )
-success "spored → dist/spored"
+success "spored → dev/spored"
 
 # ---------------------------------------------------------------------------
 # 2. Build CLI nodes
 # ---------------------------------------------------------------------------
-step "Building CLI nodes"
+step "Building CLI nodes for development"
 
 for node in "${NODES[@]}"; do
     echo "  ▸ $node"
@@ -120,28 +134,19 @@ for node in "${NODES[@]}"; do
         cd "$NODE_DIR"
         go test ./... -count=1 || die "$node tests failed — aborting build"
         build_universal "$node"
-        cp "$node"                          "$DIST_DIR/bin/$node"
-        cp "${node}.manifest.spore.yaml"    "$DIST_DIR/nodes/${node}.manifest.spore.yaml"
+        cp "$node"                          "$DEV_DIR/bin/$node"
+        cp "${node}.manifest.spore.yaml"    "$DEV_DIR/nodes/${node}.manifest.spore.yaml"
         rm -f "$node"
     )
-    success "$node → dist/bin/$node"
+    success "$node → dev/bin/$node"
 done
 
 # ---------------------------------------------------------------------------
-# 3. Stage installer scripts
-# ---------------------------------------------------------------------------
-step "Staging installer scripts"
-cp "$SCRIPT_DIR/install.sh"   "$DIST_DIR/install.sh"
-cp "$SCRIPT_DIR/uninstall.sh" "$DIST_DIR/uninstall.sh"
-chmod +x "$DIST_DIR/install.sh" "$DIST_DIR/uninstall.sh"
-success "install.sh and uninstall.sh → dist/"
-
-# ---------------------------------------------------------------------------
-# 4. Write SHA-256 checksums for all binaries
+# 3. Write SHA-256 checksums for all binaries
 # ---------------------------------------------------------------------------
 step "Computing SHA-256 checksums"
 (
-    cd "$DIST_DIR"
+    cd "$DEV_DIR"
     {
         shasum -a 256 spored
         for f in bin/*; do
@@ -152,21 +157,12 @@ step "Computing SHA-256 checksums"
 success "checksums.sha256 written"
 
 # ---------------------------------------------------------------------------
-# 5. Package release archive (if requested)
-# ---------------------------------------------------------------------------
-if [[ "$RELEASE_MODE" == "true" ]]; then
-    step "Packaging release archive"
-    tar -czf "$REPO_ROOT/spore-os-install-macos.tar.gz" -C "$REPO_ROOT" dist
-    success "Release archive created: spore-os-install-macos.tar.gz"
-fi
-
-# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 echo -e "\n${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}${BOLD}  Build complete!  dist/ contents:${NC}"
+echo -e "${GREEN}${BOLD}  Development Build complete!  dev/ contents:${NC}"
 echo -e "${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-find "$DIST_DIR" ! -type d | sort | sed "s|${DIST_DIR}/||" | while IFS= read -r f; do
+find "$DEV_DIR" ! -type d | sort | sed "s|${DEV_DIR}/||" | while IFS= read -r f; do
     echo -e "  ${GREEN}${f}${NC}"
 done
 echo ""

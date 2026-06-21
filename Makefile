@@ -14,11 +14,13 @@ else
 endif
 
 SCRIPTS := macos/build.sh macos/install.sh macos/uninstall.sh \
-           linux/build.sh linux/install.sh linux/uninstall.sh
+           linux/build.sh linux/install.sh linux/uninstall.sh \
+           macos/develop.sh macos/startdev.sh \
+           linux/develop.sh linux/startdev.sh
 
 .DEFAULT_GOAL := check
 
-.PHONY: setup check release
+.PHONY: setup check release develop startdev
 
 setup:
 ifeq ($(PLATFORM),windows)
@@ -82,6 +84,39 @@ else ifeq ($(PLATFORM),linux)
 	@echo "==> [Linux] Building release..."
 	@linux/build.sh
 	@echo "==> Release build complete."
+else
+	@echo "Unsupported platform: $(PLATFORM)"
+	@exit 1
+endif
+
+develop:
+ifeq ($(PLATFORM),windows)
+	@echo "==> [Windows] Building for development..."
+	@powershell -NoProfile -ExecutionPolicy Bypass -File windows/develop.ps1
+	@echo "==> Development build complete."
+else ifeq ($(PLATFORM),macos)
+	@echo "==> [macOS] Building for development..."
+	@macos/develop.sh
+	@echo "==> Development build complete."
+else ifeq ($(PLATFORM),linux)
+	@echo "==> [Linux] Building for development..."
+	@linux/develop.sh
+	@echo "==> Development build complete."
+else
+	@echo "Unsupported platform: $(PLATFORM)"
+	@exit 1
+endif
+
+startdev:
+ifeq ($(PLATFORM),windows)
+	@echo "==> [Windows] Starting development environment..."
+	@powershell -NoProfile -ExecutionPolicy Bypass -File windows/startdev.ps1
+else ifeq ($(PLATFORM),macos)
+	@echo "==> [macOS] Starting development environment..."
+	@macos/startdev.sh
+else ifeq ($(PLATFORM),linux)
+	@echo "==> [Linux] Starting development environment..."
+	@linux/startdev.sh
 else
 	@echo "Unsupported platform: $(PLATFORM)"
 	@exit 1
