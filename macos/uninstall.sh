@@ -69,32 +69,29 @@ fi
 # ---------------------------------------------------------------------------
 step "Removing LaunchDaemon plist"
 
-if [[ -x /usr/local/bin/spored ]]; then
-    if /usr/local/bin/spored uninstall 2>/dev/null; then
+if [[ -x "${APP_SUPPORT}/spored" ]]; then
+    if "${APP_SUPPORT}/spored" uninstall 2>/dev/null; then
         success "spored uninstall completed"
     else
         warn "spored uninstall returned non-zero — attempting manual removal"
         rm -f "$PLIST_PATH" && success "Removed $PLIST_PATH" || true
     fi
 else
-    warn "/usr/local/bin/spored not found — removing plist directly"
+    warn "${APP_SUPPORT}/spored not found — removing plist directly"
     rm -f "$PLIST_PATH" && success "Removed $PLIST_PATH" || true
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Remove binaries from /usr/local/bin
+# 3. Remove symlinks
 # ---------------------------------------------------------------------------
-step "Removing binaries from /usr/local/bin"
+step "Removing symlinks"
 
-for bin in spored "${NODES[@]}"; do
-    target="/usr/local/bin/${bin}"
-    if [[ -f "$target" ]]; then
-        rm -f "$target"
-        success "Removed $target"
-    else
-        warn "$target not found — skipping"
-    fi
-done
+if [[ -L /usr/local/bin/spore ]]; then
+    rm -f /usr/local/bin/spore
+    success "Removed /usr/local/bin/spore"
+else
+    warn "/usr/local/bin/spore not found — skipping"
+fi
 
 # ---------------------------------------------------------------------------
 # 4. Remove system directories
@@ -103,8 +100,7 @@ step "Removing system directories"
 
 for path in \
     "$APP_SUPPORT" \
-    "/Library/Logs/spore-os" \
-    "/var/run/spore"
+    "/Library/Logs/spore-os"
 do
     if [[ -e "$path" ]]; then
         rm -rf "$path"

@@ -74,15 +74,15 @@ fi
 # ---------------------------------------------------------------------------
 step "Attempting spored self-uninstall"
 
-if [[ -x /usr/local/bin/spored ]]; then
-    if /usr/local/bin/spored uninstall 2>/dev/null; then
+if [[ -x "${APP_SUPPORT}/spored" ]]; then
+    if "${APP_SUPPORT}/spored" uninstall 2>/dev/null; then
         success "spored uninstall completed"
     else
         warn "spored uninstall returned non-zero — attempting manual removal"
         rm -f "/etc/systemd/system/${SERVICE_LABEL}.service" && success "Removed service file" || true
     fi
 else
-    warn "/usr/local/bin/spored not found — removing service file directly"
+    warn "${APP_SUPPORT}/spored not found — removing service file directly"
     rm -f "/etc/systemd/system/${SERVICE_LABEL}.service" && success "Removed service file" || true
 fi
 
@@ -90,19 +90,16 @@ fi
 systemctl daemon-reload
 
 # ---------------------------------------------------------------------------
-# 3. Remove binaries from /usr/local/bin
+# 3. Remove symlinks
 # ---------------------------------------------------------------------------
-step "Removing binaries from /usr/local/bin"
+step "Removing symlinks"
 
-for bin in spored "${NODES[@]}"; do
-    target="/usr/local/bin/${bin}"
-    if [[ -f "$target" ]]; then
-        rm -f "$target"
-        success "Removed $target"
-    else
-        warn "$target not found — skipping"
-    fi
-done
+if [[ -L /usr/local/bin/spore ]]; then
+    rm -f /usr/local/bin/spore
+    success "Removed /usr/local/bin/spore"
+else
+    warn "/usr/local/bin/spore not found — skipping"
+fi
 
 # ---------------------------------------------------------------------------
 # 4. Remove system directories
@@ -111,9 +108,7 @@ step "Removing system directories"
 
 for path in \
     "$APP_SUPPORT" \
-    "/var/log/spore-os" \
-    "/run/spore" \
-    "/var/run/spore"
+    "/var/log/spore-os"
 do
     if [[ -e "$path" ]]; then
         rm -rf "$path"

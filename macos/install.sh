@@ -72,13 +72,14 @@ fi
 # ---------------------------------------------------------------------------
 step "Creating system directories"
 
+mkdir -p "${APP_SUPPORT}"
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}"
+success "${APP_SUPPORT}"
+
 declare -a DIRS=(
     "${APP_SUPPORT}/data"
-    "${APP_SUPPORT}/hub"
-    "${APP_SUPPORT}/manifests"
-    "${APP_SUPPORT}/run"
+    "${APP_SUPPORT}/store"
     "/Library/Logs/spore-os"
-    "/var/run/spore"
 )
 
 for dir in "${DIRS[@]}"; do
@@ -88,34 +89,42 @@ for dir in "${DIRS[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
-# 3. Install binaries
+# 3. Install binaries to store
 # ---------------------------------------------------------------------------
-step "Installing binaries to /usr/local/bin"
+step "Installing binaries to store"
 
-install -m 755 "$DIST_DIR/spored" /usr/local/bin/spored
-success "Installed spored"
+install -m 755 "$DIST_DIR/spored" "${APP_SUPPORT}/spored"
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/spored"
+success "Installed spored → ${APP_SUPPORT}/spored"
 
 for node in "${NODES[@]}"; do
-    install -m 755 "$DIST_DIR/bin/$node" "/usr/local/bin/$node"
-    success "Installed $node"
+    mkdir -p "${APP_SUPPORT}/store/${node}"
+    install -m 755 "$DIST_DIR/bin/$node" "${APP_SUPPORT}/store/${node}/${node}"
+    chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/store/${node}/${node}"
+    success "Installed $node → store/${node}/${node}"
 done
 
 # ---------------------------------------------------------------------------
-# 4. Install hub manifest
+# 3b. Symlink spore CLI into /usr/local/bin
+# ---------------------------------------------------------------------------
+step "Symlinking spore CLI to /usr/local/bin"
+
+ln -sf "${APP_SUPPORT}/store/spore/spore" /usr/local/bin/spore
+success "Symlinked: /usr/local/bin/spore → store/spore/spore"
 # ---------------------------------------------------------------------------
 step "Installing hub manifest"
 
 install -m 644 "$DIST_DIR/spored.manifest.spore.yaml" \
-    "${APP_SUPPORT}/hub/spored.manifest.spore.yaml"
-chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/hub/spored.manifest.spore.yaml"
-success "Hub manifest installed at ${APP_SUPPORT}/hub/"
+    "${APP_SUPPORT}/spored.manifest.spore.yaml"
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/spored.manifest.spore.yaml"
+success "Hub manifest installed at ${APP_SUPPORT}/"
 
 # ---------------------------------------------------------------------------
 # 5. Register LaunchDaemon and start it
 # ---------------------------------------------------------------------------
 step "Registering LaunchDaemon (${SERVICE_LABEL})"
 
-/usr/local/bin/spored install
+"${APP_SUPPORT}/spored" install
 success "LaunchDaemon plist registered at ${PLIST_PATH}"
 
 if launchctl print "system/${SERVICE_LABEL}" &>/dev/null; then
@@ -126,26 +135,49 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Install node manifests, then restart daemon
+# 6. Install node manifests to store and write registry
 # ---------------------------------------------------------------------------
-step "Installing node manifests"
+step "Installing node manifests to store"
+
+REGISTRY_FILE="${APP_SUPPORT}/nodes.registry.yaml"
 
 shopt -s nullglob
 manifests=("$DIST_DIR/nodes/"*.manifest.spore.yaml)
 shopt -u nullglob
 
 if [[ ${#manifests[@]} -eq 0 ]]; then
-    warn "No node manifests found in ${DIST_DIR}/nodes/ — skipping"
+    warn "No node manifests found in ${DIST_DIR}/nodes/ — skipping registry write"
 else
+    # Write YAML registry header
+    {
+        printf '# Spore OS Node Registry — managed by installer/spored, do not edit manually\n'
+        printf 'version: 1\n'
+        printf 'nodes:\n'
+    } > "$REGISTRY_FILE"
+
     for manifest in "${manifests[@]}"; do
-        /usr/local/bin/spored install "$manifest"
-        success "Installed manifest: $(basename "$manifest")"
+        node_name="$(basename "$manifest" .manifest.spore.yaml)"
+        node_store_dir="${APP_SUPPORT}/store/${node_name}"
+        mkdir -p "$node_store_dir"
+        chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$node_store_dir"
+        dest_manifest="${node_store_dir}/$(basename "$manifest")"
+        cp "$manifest" "$dest_manifest"
+        chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$dest_manifest"
+        success "Stored manifest: $dest_manifest"
+
+        # Compute SHA-256 checksum (macOS)
+        hash="$(shasum -a 256 "$dest_manifest" | awk '{print $1}')"
+
+        # Append YAML entry
+        {
+            printf '  - name: %s\n' "$node_name"
+            printf '    manifest: %s\n' "$dest_manifest"
+            printf "    checksum: 'sha256:%s'\n" "$hash"
+        } >> "$REGISTRY_FILE"
     done
 
-    step "Restarting daemon to load manifests"
-    launchctl bootout "system/${SERVICE_LABEL}" 2>/dev/null || true
-    launchctl bootstrap system "${PLIST_PATH}"
-    success "Daemon restarted"
+    chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$REGISTRY_FILE"
+    success "Node registry written to $REGISTRY_FILE"
 fi
 
 # ---------------------------------------------------------------------------
@@ -185,7 +217,7 @@ PLIST
 osascript <<'EOF_AS'
 tell application "Terminal"
     activate
-    do script "${bin_path}"
+    do script "'${bin_path}'"
 end tell
 EOF_AS
 EOF_LAUNCHER
@@ -198,13 +230,13 @@ create_app_bundle \
     "/Applications/Spore Shell.app" \
     "Spore Shell" \
     "dev.sporeos.shell" \
-    "/usr/local/bin/spore-shell"
+    "${APP_SUPPORT}/store/spore-shell/spore-shell"
 
 create_app_bundle \
     "/Applications/Spore Witness.app" \
     "Spore Witness" \
     "dev.sporeos.witness" \
-    "/usr/local/bin/spore-witness"
+    "${APP_SUPPORT}/store/spore-witness/spore-witness"
 
 step "Triggering Spotlight indexing"
 mdimport "/Applications/Spore Shell.app"

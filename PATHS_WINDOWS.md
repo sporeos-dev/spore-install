@@ -22,25 +22,24 @@ paths — no hardcoded alternatives.
 | `%LOCALAPPDATA%\spore-os` | Daemon binary root and persistent data |
 | `%LOCALAPPDATA%\spore-os\bin` | CLI node binaries |
 | `%LOCALAPPDATA%\spore-os\data` | Persistent daemon data |
-| `%LOCALAPPDATA%\spore-os\hub` | Hub manifests |
-| `%LOCALAPPDATA%\spore-os\manifests` | Node manifests |
-| `%LOCALAPPDATA%\spore-os\run` | Runtime files (socket lives here) |
+| `%LOCALAPPDATA%\spore-os\store` | Package store (node manifests, one sub-dir per node) |
+| `%LOCALAPPDATA%\spore-os\nodes.registry.yaml` | Node registry (paths + checksums) |
+| `%LOCALAPPDATA%\spore-os\spored.sock` | Named pipe / socket (created at runtime by spored) |
 | `%LOCALAPPDATA%\spore-os\logs` | Daemon and node log files |
 
 ---
 
-## Binaries (installed to `%LOCALAPPDATA%\spore-os\` and `\bin\`)
+## Binaries (installed to store subdirectories under Local AppData user context)
 
-| Binary | Source |
-|--------|---------|
+| Path | Purpose |
+|------|---------|
 | `%LOCALAPPDATA%\spore-os\spored.exe` | `spored` daemon |
-| `%LOCALAPPDATA%\spore-os\bin\spore.exe` | Main CLI entry point |
-| `%LOCALAPPDATA%\spore-os\bin\spore-shell.exe` | Shell node |
-| `%LOCALAPPDATA%\spore-os\bin\spore-witness.exe` | Witness node |
-| `%LOCALAPPDATA%\spore-os\bin\spore-log.exe` | Log node |
+| `%LOCALAPPDATA%\spore-os\store\spore\spore.exe` | Main CLI entry point |
+| `%LOCALAPPDATA%\spore-os\store\spore-shell\spore-shell.exe` | Shell node |
+| `%LOCALAPPDATA%\spore-os\store\spore-witness\spore-witness.exe` | Witness node |
+| `%LOCALAPPDATA%\spore-os\store\spore-log\spore-log.exe` | Log node |
 
-Both `%LOCALAPPDATA%\spore-os` and `%LOCALAPPDATA%\spore-os\bin` are appended
-to the **User** `PATH` by the installer.
+`%LOCALAPPDATA%\spore-os` is appended to the **User** `PATH` by the installer.
 
 `dist\` is split by architecture: `dist\amd64\` and `dist\arm64\`. The
 installer detects the host architecture via `$env:PROCESSOR_ARCHITECTURE` and

@@ -21,23 +21,22 @@ paths — no hardcoded alternatives.
 | Path | Purpose |
 |------|---------|
 | `/Library/Application Support/spore-os/data` | Persistent daemon data |
-| `/Library/Application Support/spore-os/hub` | Hub manifests |
-| `/Library/Application Support/spore-os/manifests` | Node manifests |
-| `/Library/Application Support/spore-os/run` | Runtime files (socket lives here) |
+| `/Library/Application Support/spore-os/store` | Package store (node manifests, one sub-dir per node) |
+| `/Library/Application Support/spore-os/nodes.registry.yaml` | Node registry (paths + checksums) |
+| `/Library/Application Support/spore-os/spored.sock` | Unix domain socket (created at runtime by spored) |
 | `/Library/Logs/spore-os` | Daemon and node log files |
-| `/var/run/spore` | Runtime directory (currently unused — see socket note below) |
 
 ---
 
-## macOS Binaries (installed to `/usr/local/bin`, mode 755)
+## macOS Binaries (installed to store subdirectories, mode 755)
 
-| Binary | Source |
-|--------|--------|
-| `/usr/local/bin/spored` | `spored` daemon |
-| `/usr/local/bin/spore` | Main CLI entry point |
-| `/usr/local/bin/spore-shell` | Shell node |
-| `/usr/local/bin/spore-witness` | Witness node |
-| `/usr/local/bin/spore-log` | Log node |
+| Path | Purpose |
+|------|---------|
+| `/Library/Application Support/spore-os/spored` | `spored` daemon |
+| `/Library/Application Support/spore-os/store/spore/spore` | Main CLI entry point |
+| `/Library/Application Support/spore-os/store/spore-shell/spore-shell` | Shell node |
+| `/Library/Application Support/spore-os/store/spore-witness/spore-witness` | Witness node |
+| `/Library/Application Support/spore-os/store/spore-log/spore-log` | Log node |
 
 ---
 
@@ -57,8 +56,8 @@ Logs declared in the plist:
 
 | Path | Launches |
 |------|---------|
-| `/Applications/Spore Shell.app` | `/usr/local/bin/spore-shell` via Terminal |
-| `/Applications/Spore Witness.app` | `/usr/local/bin/spore-witness` via Terminal |
+| `/Applications/Spore Shell.app` | `/Library/Application Support/spore-os/store/spore-shell/spore-shell` via Terminal |
+| `/Applications/Spore Witness.app` | `/Library/Application Support/spore-os/store/spore-witness/spore-witness` via Terminal |
 
 ---
 
@@ -85,23 +84,22 @@ paths — no hardcoded alternatives.
 | Path | Purpose |
 |------|---------|
 | `/var/lib/spore-os/data` | Persistent daemon data |
-| `/var/lib/spore-os/hub` | Hub manifests |
-| `/var/lib/spore-os/manifests` | Node manifests |
-| `/var/lib/spore-os/run` | Runtime files (socket lives here) |
+| `/var/lib/spore-os/store` | Package store (node manifests, one sub-dir per node) |
+| `/var/lib/spore-os/nodes.registry.yaml` | Node registry (paths + checksums) |
+| `/var/lib/spore-os/spored.sock` | Unix domain socket (created at runtime by spored) |
 | `/var/log/spore-os` | Daemon and node log files |
-| `/run/spore` | Runtime directory (service-scoped transient directory) |
 
 ---
 
-## Linux Binaries (installed to `/usr/local/bin`, mode 755)
+## Linux Binaries (installed to store subdirectories, mode 755)
 
-| Binary | Source |
-|--------|--------|
-| `/usr/local/bin/spored` | `spored` daemon |
-| `/usr/local/bin/spore` | Main CLI entry point |
-| `/usr/local/bin/spore-shell` | Shell node |
-| `/usr/local/bin/spore-witness` | Witness node |
-| `/usr/local/bin/spore-log` | Log node |
+| Path | Purpose |
+|------|---------|
+| `/var/lib/spore-os/spored` | `spored` daemon |
+| `/var/lib/spore-os/store/spore/spore` | Main CLI entry point |
+| `/var/lib/spore-os/store/spore-shell/spore-shell` | Shell node |
+| `/var/lib/spore-os/store/spore-witness/spore-witness` | Witness node |
+| `/var/lib/spore-os/store/spore-log/spore-log` | Log node |
 
 ---
 
@@ -121,5 +119,5 @@ Logs declared in the service file:
 
 | Path | Launches |
 |------|---------|
-| `/usr/share/applications/spore-shell.desktop` | `/usr/local/bin/spore-shell` in shell terminal |
-| `/usr/share/applications/spore-witness.desktop` | `/usr/local/bin/spore-witness` in shell terminal |
+| `/usr/share/applications/spore-shell.desktop` | `/var/lib/spore-os/store/spore-shell/spore-shell` in shell terminal |
+| `/usr/share/applications/spore-witness.desktop` | `/var/lib/spore-os/store/spore-witness/spore-witness` in shell terminal |

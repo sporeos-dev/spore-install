@@ -28,12 +28,10 @@ $Arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' 
 # Paths (User-level)
 # ---------------------------------------------------------------------------
 $InstallDir   = Join-Path $env:LOCALAPPDATA 'spore-os'
-$BinDir       = Join-Path $InstallDir 'bin'
 $DataDir      = $InstallDir
 $LogDir       = Join-Path $DataDir 'logs'
-$HubDir       = Join-Path $DataDir 'hub'
-$ManifestDir  = Join-Path $DataDir 'manifests'
-$RunDir       = Join-Path $DataDir 'run'
+$StoreDir     = Join-Path $DataDir 'store'
+$RegistryFile = Join-Path $DataDir 'nodes.registry.yaml'
 $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
 $env:SPORE_DATA_DIR = $InstallDir
@@ -47,12 +45,9 @@ Step "Creating user-level directories"
 
 $Dirs = @(
     $InstallDir,
-    $BinDir,
     $DataDir,
     (Join-Path $DataDir 'data'),
-    $HubDir,
-    $ManifestDir,
-    $RunDir,
+    $StoreDir,
     $LogDir
 )
 
@@ -84,14 +79,16 @@ foreach ($node in $Nodes) {
 # ---------------------------------------------------------------------------
 # 3. Install binaries
 # ---------------------------------------------------------------------------
-Step "Installing binaries to $InstallDir"
+Step "Installing binaries to store"
 
 Copy-Item "$DistDir\$Arch\spored.exe" "$InstallDir\spored.exe" -Force
-Success "Installed spored.exe"
+Success "Installed spored.exe → $InstallDir\spored.exe"
 
 foreach ($node in $Nodes) {
-    Copy-Item "$DistDir\$Arch\bin\${node}.exe" "$BinDir\${node}.exe" -Force
-    Success "Installed ${node}.exe"
+    $nodeStoreDir = Join-Path $StoreDir $node
+    if (-not (Test-Path $nodeStoreDir)) { New-Item -ItemType Directory -Force -Path $nodeStoreDir | Out-Null }
+    Copy-Item "$DistDir\$Arch\bin\${node}.exe" "$nodeStoreDir\${node}.exe" -Force
+    Success "Installed ${node}.exe → store\${node}\${node}.exe"
 }
 
 # ---------------------------------------------------------------------------
@@ -99,8 +96,8 @@ foreach ($node in $Nodes) {
 # ---------------------------------------------------------------------------
 Step "Installing hub manifest"
 
-Copy-Item "$DistDir\spored.manifest.spore.yaml" "$HubDir\spored.manifest.spore.yaml" -Force
-Success "Hub manifest installed at $HubDir"
+Copy-Item "$DistDir\spored.manifest.spore.yaml" "$InstallDir\spored.manifest.spore.yaml" -Force
+Success "Hub manifest installed at $InstallDir"
 
 # ---------------------------------------------------------------------------
 # 5. Add install directories to the user PATH
@@ -110,7 +107,7 @@ Step "Updating user PATH"
 $userPath = [System.Environment]::GetEnvironmentVariable('PATH', 'User')
 $changed  = $false
 
-foreach ($p in @($InstallDir, $BinDir)) {
+foreach ($p in @($InstallDir)) {
     if ($userPath -notlike "*$p*") {
         if ($userPath -and -not $userPath.EndsWith(';')) { $userPath += ";" }
         $userPath += $p
@@ -123,7 +120,7 @@ foreach ($p in @($InstallDir, $BinDir)) {
 
 if ($changed) {
     [System.Environment]::SetEnvironmentVariable('PATH', $userPath, 'User')
-    $env:PATH = $env:PATH + ";" + $InstallDir + ";" + $BinDir
+    $env:PATH = $env:PATH + ";" + $InstallDir
 }
 
 # Persist SPORE_DATA_DIR environment variable
@@ -139,26 +136,48 @@ Start-Sleep -Seconds 2
 Success "Daemon started"
 
 # ---------------------------------------------------------------------------
-# 7. Install node manifests
+# 7. Install node manifests to store and write registry
 # ---------------------------------------------------------------------------
-Step "Installing node manifests"
+Step "Installing node manifests to store"
 
 $manifests = @(Get-ChildItem "$DistDir\nodes\*.manifest.spore.yaml" -ErrorAction SilentlyContinue)
 
 if ($manifests.Count -eq 0) {
-    Warn "No node manifests found in $DistDir\nodes\ - skipping"
+    Warn "No node manifests found in $DistDir\nodes\ - skipping registry write"
 } else {
+    # YAML registry header
+    $registryLines = @(
+        '# Spore OS Node Registry — managed by installer/spored, do not edit manually',
+        'version: 1',
+        'nodes:'
+    )
+
     foreach ($manifest in $manifests) {
-        & "$InstallDir\spored.exe" install $manifest.FullName
-        if ($LASTEXITCODE -ne 0) { Die "Failed to install manifest: $($manifest.Name)" }
-        Success "Installed manifest: $($manifest.Name)"
+        # Derive node name from filename: <name>.manifest.spore.yaml
+        $nodeName = $manifest.Name -replace '\.manifest\.spore\.yaml$', ''
+
+        # Copy manifest into its own store sub-directory
+        $nodeStoreDir = Join-Path $StoreDir $nodeName
+        if (-not (Test-Path $nodeStoreDir)) {
+            New-Item -ItemType Directory -Force -Path $nodeStoreDir | Out-Null
+        }
+        $destManifest = Join-Path $nodeStoreDir $manifest.Name
+        Copy-Item $manifest.FullName $destManifest -Force
+        Success "Stored manifest: $destManifest"
+
+        # Compute SHA-256 checksum of the installed manifest
+        $hash = (Get-FileHash -Path $destManifest -Algorithm SHA256).Hash.ToLower()
+
+        # Append YAML entry (use forward slashes for cross-tool compatibility)
+        $manifestPath = $destManifest -replace '\\', '/'
+        $registryLines += "  - name: $nodeName"
+        $registryLines += "    manifest: $manifestPath"
+        $registryLines += "    checksum: 'sha256:$hash'"
     }
 
-    Step "Restarting daemon to apply manifests"
-    Stop-Process -Name 'spored' -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
-    Start-Process -FilePath "$InstallDir\spored.exe" -WorkingDirectory $InstallDir -WindowStyle Hidden
-    Success "Daemon restarted"
+    # Write registry file (UTF-8, no BOM)
+    [System.IO.File]::WriteAllLines($RegistryFile, $registryLines, [System.Text.UTF8Encoding]::new($false))
+    Success "Node registry written to $RegistryFile"
 }
 
 # ---------------------------------------------------------------------------
@@ -178,8 +197,8 @@ function New-StartMenuShortcut ([string]$ShortcutName, [string]$TargetBin) {
     Success "Created: $StartMenuDir\$ShortcutName.lnk"
 }
 
-New-StartMenuShortcut -ShortcutName 'Spore Shell'   -TargetBin "$BinDir\spore-shell.exe"
-New-StartMenuShortcut -ShortcutName 'Spore Witness' -TargetBin "$BinDir\spore-witness.exe"
+New-StartMenuShortcut -ShortcutName 'Spore Shell'   -TargetBin "$(Join-Path $StoreDir 'spore-shell\spore-shell.exe')"
+New-StartMenuShortcut -ShortcutName 'Spore Witness' -TargetBin "$(Join-Path $StoreDir 'spore-witness\spore-witness.exe')"
 
 # ---------------------------------------------------------------------------
 # Done
