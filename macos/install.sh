@@ -120,22 +120,10 @@ chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/spored.manifest.spore.yam
 success "Hub manifest installed at ${APP_SUPPORT}/"
 
 # ---------------------------------------------------------------------------
-# 5. Register LaunchDaemon and start it
-# ---------------------------------------------------------------------------
-step "Registering LaunchDaemon (${SERVICE_LABEL})"
-
-"${APP_SUPPORT}/spored" install
-success "LaunchDaemon plist registered at ${PLIST_PATH}"
-
-if launchctl print "system/${SERVICE_LABEL}" &>/dev/null; then
-    warn "Service ${SERVICE_LABEL} already loaded — skipping bootstrap"
-else
-    launchctl bootstrap system "${PLIST_PATH}"
-    success "Service ${SERVICE_LABEL} started"
-fi
-
-# ---------------------------------------------------------------------------
-# 6. Install node manifests to store and write registry
+# 5. Install node manifests to store and write registry
+#    Must happen BEFORE the daemon starts so spored reads a complete registry
+#    on first boot.  On reinstalls the daemon is restarted at the end of step 6
+#    so it always picks up the freshly-written registry.
 # ---------------------------------------------------------------------------
 step "Installing node manifests to store"
 
@@ -178,6 +166,26 @@ else
 
     chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$REGISTRY_FILE"
     success "Node registry written to $REGISTRY_FILE"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Register LaunchDaemon and start / restart it
+#    The registry is fully written above, so spored will read it on first boot.
+#    On reinstalls we kickstart the daemon so it reloads the updated registry.
+# ---------------------------------------------------------------------------
+step "Registering LaunchDaemon (${SERVICE_LABEL})"
+
+"${APP_SUPPORT}/spored" install
+success "LaunchDaemon plist registered at ${PLIST_PATH}"
+
+if launchctl print "system/${SERVICE_LABEL}" &>/dev/null; then
+    # Daemon already running (reinstall/upgrade) — restart it so it reloads the
+    # freshly-written node registry.
+    launchctl kickstart -k "system/${SERVICE_LABEL}"
+    success "Service ${SERVICE_LABEL} restarted (registry reloaded)"
+else
+    launchctl bootstrap system "${PLIST_PATH}"
+    success "Service ${SERVICE_LABEL} started"
 fi
 
 # ---------------------------------------------------------------------------
