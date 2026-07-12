@@ -181,9 +181,14 @@ else
         dest_binary="${node_store_dir}/${node_name}"
         bin_hash="$(shasum -a 256 "$dest_binary" | awk '{print $1}')"
 
+        # Extract id and name from manifest
+        manifest_id="$(grep '^id:' "$dest_manifest" | awk '{print $2}')"
+        manifest_name="$(grep '^name:' "$dest_manifest" | sed 's/^name:[[:space:]]*//')"
+
         # Append YAML entry
         {
-            printf '  - name: %s\n' "$node_name"
+            printf '  - name: %s\n' "$manifest_name"
+            printf '    id: %s\n' "$manifest_id"
             printf '    manifest: %s\n' "$dest_manifest"
             printf "    checksum: 'sha256:%s'\n" "$hash"
             printf '    binary: %s\n' "$dest_binary"

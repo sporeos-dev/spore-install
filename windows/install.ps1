@@ -133,22 +133,7 @@ if ($changed) {
 Step "Starting Spore OS daemon (spored.exe) in background"
 
 Start-Process -FilePath "$InstallDir\spored.exe" -WorkingDirectory $InstallDir -WindowStyle Hidden
-
-# Wait for spored socket to be ready before starting hyphae
-Step "Waiting for spored socket"
-$SporedSock = Join-Path $InstallDir 'spored.sock'
-$maxWait = 30
-$ready = $false
-for ($i = 1; $i -le $maxWait; $i++) {
-    if (Test-Path $SporedSock) {
-        Success "spored socket ready (${i}s)"
-        $ready = $true
-        break
-    }
-    Start-Sleep -Seconds 1
-}
-if (-not $ready) { Warn "spored socket not found after ${maxWait}s — hyphae may not connect on first start" }
-
+Start-Sleep -Seconds 2
 Success "Daemon started"
 
 # ---------------------------------------------------------------------------
@@ -203,15 +188,17 @@ if ($manifests.Count -eq 0) {
 
         # Binary path and checksum
         $binaryPath = Join-Path $nodeStoreDir "${nodeName}.exe"
-        $binHash = ""
-        if (Test-Path $binaryPath) {
-            $binHash = (Get-FileHash -Path $binaryPath -Algorithm SHA256).Hash.ToLower()
-        }
+        $binHash = (Get-FileHash -Path $binaryPath -Algorithm SHA256).Hash.ToLower()
+
+        # Extract id and name from manifest
+        $manifestId   = (Select-String -Path $destManifest -Pattern '^id:\s*(.+)').Matches[0].Groups[1].Value.Trim()
+        $manifestName = (Select-String -Path $destManifest -Pattern '^name:\s*(.+)').Matches[0].Groups[1].Value.Trim()
 
         # Append YAML entry (use forward slashes for cross-tool compatibility)
         $manifestPath  = $destManifest -replace '\\', '/'
         $binaryFwdPath = $binaryPath   -replace '\\', '/'
-        $registryLines += "  - name: $nodeName"
+        $registryLines += "  - name: $manifestName"
+        $registryLines += "    id: $manifestId"
         $registryLines += "    manifest: $manifestPath"
         $registryLines += "    checksum: 'sha256:$hash'"
         $registryLines += "    binary: $binaryFwdPath"

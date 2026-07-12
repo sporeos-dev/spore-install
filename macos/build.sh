@@ -60,9 +60,9 @@ success "dist/ created at $DIST_DIR"
 build_universal() {
     local out_name="$1"
     echo "    Building arm64..."
-    GOOS=darwin GOARCH=arm64 go build -o "${out_name}_arm64" .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o "${out_name}_arm64" .
     echo "    Building amd64..."
-    GOOS=darwin GOARCH=amd64 go build -o "${out_name}_amd64" .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o "${out_name}_amd64" .
     echo "    Linking universal binary..."
     lipo -create "${out_name}_arm64" "${out_name}_amd64" -output "${out_name}"
     rm -f "${out_name}_arm64" "${out_name}_amd64"

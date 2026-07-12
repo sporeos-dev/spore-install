@@ -207,23 +207,6 @@ systemctl restart ${SERVICE_LABEL}.service
 success "systemd service ${SERVICE_LABEL}.service registered and started"
 
 # ---------------------------------------------------------------------------
-# 5c. Wait for spored socket before starting hyphae
-# ---------------------------------------------------------------------------
-step "Waiting for spored socket"
-SPORED_SOCK="${APP_SUPPORT}/spored.sock"
-MAX_WAIT=30
-for i in $(seq 1 $MAX_WAIT); do
-    if [[ -S "$SPORED_SOCK" ]]; then
-        success "spored socket ready (${i}s)"
-        break
-    fi
-    if [[ "$i" -eq "$MAX_WAIT" ]]; then
-        warn "spored socket not found after ${MAX_WAIT}s — hyphae may not connect on first start"
-    fi
-    sleep 1
-done
-
-# ---------------------------------------------------------------------------
 # 5b. Register hyphae user agent for the invoking user
 # ---------------------------------------------------------------------------
 step "Registering hyphae user agent"
@@ -290,14 +273,16 @@ else
 
         # Binary path and checksum
         dest_binary="${node_store_dir}/${node_name}"
-        bin_hash=""
-        if [[ -f "$dest_binary" ]]; then
-            bin_hash="$(sha256sum "$dest_binary" | awk '{print $1}')"
-        fi
+        bin_hash="$(sha256sum "$dest_binary" | awk '{print $1}')"
+
+        # Extract id and name from manifest
+        manifest_id="$(grep '^id:' "$dest_manifest" | awk '{print $2}')"
+        manifest_name="$(grep '^name:' "$dest_manifest" | sed 's/^name:[[:space:]]*//')"
 
         # Append YAML entry
         {
-            printf '  - name: %s\n' "$node_name"
+            printf '  - name: %s\n' "$manifest_name"
+            printf '    id: %s\n' "$manifest_id"
             printf '    manifest: %s\n' "$dest_manifest"
             printf "    checksum: 'sha256:%s'\n" "$hash"
             printf '    binary: %s\n' "$dest_binary"
