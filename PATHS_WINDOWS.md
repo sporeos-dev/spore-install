@@ -62,3 +62,18 @@ copies the matching binaries.
 |------|----------|
 | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Spore OS\Spore Shell.lnk` | `spore-shell.exe` |
 | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Spore OS\Spore Witness.lnk` | `spore-witness.exe` |
+
+---
+
+## Hyphae User Agent
+
+Hyphae runs as a **Task Scheduler** entry in the current user's context (no elevation required).
+`kardianos/service` with `UserService: true` registers the task via `hyphae.exe install`.
+
+| What | Value |
+|------|-------|
+| Task registration | Windows Task Scheduler (current user) |
+| Binary | `%LOCALAPPDATA%\spore-os\store\hyphae\hyphae.exe` |
+
+The installer calls `hyphae.exe install` then `hyphae.exe start` automatically.
+To manage manually: `hyphae start`, `hyphae stop`, `hyphae uninstall`.

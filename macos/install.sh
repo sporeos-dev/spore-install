@@ -40,7 +40,20 @@ PLIST_PATH="/Library/LaunchDaemons/dev.sporeos.spored.plist"
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/Library/Application Support/spore-os"
 
-NODES=(spore-shell spore-witness spore-log spore)
+NODES=(spore-shell spore-witness spore-log spore hyphae)
+HYPHAE_AGENT_LABEL="dev.sporeos.agent"
+
+# ---------------------------------------------------------------------------
+# Detect the real (non-root) user who invoked sudo
+# Used later to register the hyphae user-space agent.
+# ---------------------------------------------------------------------------
+REAL_USER="${SUDO_USER:-}"
+[[ -z "$REAL_USER" ]] && REAL_USER="$(logname 2>/dev/null || true)"
+[[ "$REAL_USER" == "root" ]] && REAL_USER=""
+if [[ -n "$REAL_USER" ]]; then
+    REAL_UID="$(id -u "$REAL_USER")"
+    REAL_HOME="$(dscl . -read "/Users/$REAL_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Create system group and user
@@ -111,6 +124,14 @@ step "Symlinking spore CLI to /usr/local/bin"
 
 ln -sf "${APP_SUPPORT}/store/spore/spore" /usr/local/bin/spore
 success "Symlinked: /usr/local/bin/spore → store/spore/spore"
+
+# ---------------------------------------------------------------------------
+# 3c. Symlink hyphae into /usr/local/bin
+# ---------------------------------------------------------------------------
+step "Symlinking hyphae to /usr/local/bin"
+
+ln -sf "${APP_SUPPORT}/store/hyphae/hyphae" /usr/local/bin/hyphae
+success "Symlinked: /usr/local/bin/hyphae → store/hyphae/hyphae"
 # ---------------------------------------------------------------------------
 step "Installing hub manifest"
 
@@ -153,14 +174,20 @@ else
         chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$dest_manifest"
         success "Stored manifest: $dest_manifest"
 
-        # Compute SHA-256 checksum (macOS)
+        # Compute SHA-256 checksum of manifest (macOS)
         hash="$(shasum -a 256 "$dest_manifest" | awk '{print $1}')"
+
+        # Binary path and checksum
+        dest_binary="${node_store_dir}/${node_name}"
+        bin_hash="$(shasum -a 256 "$dest_binary" | awk '{print $1}')"
 
         # Append YAML entry
         {
             printf '  - name: %s\n' "$node_name"
             printf '    manifest: %s\n' "$dest_manifest"
             printf "    checksum: 'sha256:%s'\n" "$hash"
+            printf '    binary: %s\n' "$dest_binary"
+            printf "    binaryChecksum: 'sha256:%s'\n" "$bin_hash"
         } >> "$REGISTRY_FILE"
     done
 
@@ -175,7 +202,7 @@ fi
 # ---------------------------------------------------------------------------
 step "Registering LaunchDaemon (${SERVICE_LABEL})"
 
-"${APP_SUPPORT}/spored" install
+"${APP_SUPPORT}/spored" install || true
 success "LaunchDaemon plist registered at ${PLIST_PATH}"
 
 if launchctl print "system/${SERVICE_LABEL}" &>/dev/null; then
@@ -186,6 +213,27 @@ if launchctl print "system/${SERVICE_LABEL}" &>/dev/null; then
 else
     launchctl bootstrap system "${PLIST_PATH}"
     success "Service ${SERVICE_LABEL} started"
+fi
+
+# ---------------------------------------------------------------------------
+# 6b. Register hyphae user agent for the invoking user
+# ---------------------------------------------------------------------------
+step "Registering hyphae user agent"
+
+if [[ -n "$REAL_USER" ]]; then
+    AGENT_PLIST="$REAL_HOME/Library/LaunchAgents/${HYPHAE_AGENT_LABEL}.plist"
+    sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" install
+    success "Hyphae LaunchAgent plist written → $AGENT_PLIST"
+    if launchctl print "gui/${REAL_UID}/${HYPHAE_AGENT_LABEL}" &>/dev/null; then
+        launchctl kickstart -k "gui/${REAL_UID}/${HYPHAE_AGENT_LABEL}"
+        success "Hyphae agent restarted for ${REAL_USER}"
+    else
+        launchctl bootstrap "gui/${REAL_UID}" "$AGENT_PLIST"
+        success "Hyphae agent started for ${REAL_USER}"
+    fi
+else
+    warn "Could not determine the invoking user — hyphae agent not auto-registered."
+    warn "Run as the target user after install: hyphae install && hyphae start"
 fi
 
 # ---------------------------------------------------------------------------

@@ -37,6 +37,7 @@ echo "  ║          SPORE OS — UNINSTALL CONFIRMATION               ║"
 echo "  ╠══════════════════════════════════════════════════════════╣"
 echo "  ║  This will permanently remove:                           ║"
 echo "  ║    • The spored daemon and all CLI node binaries         ║"
+echo "  ║    • The hyphae user agent (current user)               ║"
 echo "  ║    • All Spore OS system directories and data            ║"
 echo "  ║    • The _spore system user and group                    ║"
 echo "  ║    • Spore Shell.app and Spore Witness.app               ║"
@@ -52,6 +53,18 @@ SYSTEM_GROUP="_spore"
 APP_SUPPORT="/Library/Application Support/spore-os"
 
 NODES=(spore-shell spore-witness spore-log spore)
+HYPHAE_AGENT_LABEL="dev.sporeos.agent"
+
+# ---------------------------------------------------------------------------
+# Detect the real (non-root) user who invoked sudo
+# ---------------------------------------------------------------------------
+REAL_USER="${SUDO_USER:-}"
+[[ -z "$REAL_USER" ]] && REAL_USER="$(logname 2>/dev/null || true)"
+[[ "$REAL_USER" == "root" ]] && REAL_USER=""
+if [[ -n "$REAL_USER" ]]; then
+    REAL_UID="$(id -u "$REAL_USER")"
+    REAL_HOME="$(dscl . -read "/Users/$REAL_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Stop the LaunchDaemon
@@ -82,6 +95,31 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 2b. Stop and unregister hyphae user agent
+# ---------------------------------------------------------------------------
+step "Stopping hyphae user agent"
+
+if [[ -n "$REAL_USER" ]]; then
+    AGENT_PLIST="$REAL_HOME/Library/LaunchAgents/${HYPHAE_AGENT_LABEL}.plist"
+    if launchctl print "gui/${REAL_UID}/${HYPHAE_AGENT_LABEL}" &>/dev/null; then
+        launchctl bootout "gui/${REAL_UID}" "$AGENT_PLIST" \
+            && success "Hyphae agent stopped for ${REAL_USER}"
+    else
+        warn "Hyphae agent not running for ${REAL_USER} — skipping bootout"
+    fi
+    if [[ -x "${APP_SUPPORT}/store/hyphae/hyphae" ]]; then
+        sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null \
+            && success "Hyphae LaunchAgent plist removed" \
+            || warn "hyphae uninstall returned non-zero (plist may already be absent)"
+    else
+        rm -f "$AGENT_PLIST" && success "Removed $AGENT_PLIST" || true
+    fi
+else
+    warn "Could not determine the invoking user — hyphae agent not auto-deregistered."
+    warn "Run as the target user: hyphae uninstall"
+fi
+
+# ---------------------------------------------------------------------------
 # 3. Remove symlinks
 # ---------------------------------------------------------------------------
 step "Removing symlinks"
@@ -91,6 +129,13 @@ if [[ -L /usr/local/bin/spore ]]; then
     success "Removed /usr/local/bin/spore"
 else
     warn "/usr/local/bin/spore not found — skipping"
+fi
+
+if [[ -L /usr/local/bin/hyphae ]]; then
+    rm -f /usr/local/bin/hyphae
+    success "Removed /usr/local/bin/hyphae"
+else
+    warn "/usr/local/bin/hyphae not found — skipping"
 fi
 
 # ---------------------------------------------------------------------------

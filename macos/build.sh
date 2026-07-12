@@ -109,6 +109,25 @@ for node in "${NODES[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
+# 2b. Build hyphae user agent
+# ---------------------------------------------------------------------------
+step "Building hyphae user agent"
+
+HYPHAE_DIR="$DEV/spore-hyphae/hyphae"
+[[ -d "$HYPHAE_DIR" ]] || die "hyphae source not found at $HYPHAE_DIR"
+
+(
+    cd "$HYPHAE_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "hyphae tests failed — aborting build"
+    build_universal hyphae
+    cp hyphae                           "$DIST_DIR/bin/hyphae"
+    cp hyphae.manifest.spore.yaml       "$DIST_DIR/nodes/hyphae.manifest.spore.yaml"
+    rm -f hyphae
+)
+success "hyphae → dist/bin/hyphae"
+
+# ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 step "Staging installer scripts"
@@ -125,7 +144,11 @@ step "Computing SHA-256 checksums"
     cd "$DIST_DIR"
     {
         shasum -a 256 spored
+        shasum -a 256 spored.manifest.spore.yaml
         for f in bin/*; do
+            [[ -f "$f" ]] && shasum -a 256 "$f"
+        done
+        for f in nodes/*; do
             [[ -f "$f" ]] && shasum -a 256 "$f"
         done
     } | tee checksums.sha256

@@ -36,7 +36,8 @@ $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Sp
 
 $env:SPORE_DATA_DIR = $InstallDir
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore', 'hyphae')
+$HyphaeAgentLabel = 'dev.sporeos.agent'
 
 # ---------------------------------------------------------------------------
 # 1. Create required directories
@@ -132,8 +133,40 @@ if ($changed) {
 Step "Starting Spore OS daemon (spored.exe) in background"
 
 Start-Process -FilePath "$InstallDir\spored.exe" -WorkingDirectory $InstallDir -WindowStyle Hidden
-Start-Sleep -Seconds 2
+
+# Wait for spored socket to be ready before starting hyphae
+Step "Waiting for spored socket"
+$SporedSock = Join-Path $InstallDir 'spored.sock'
+$maxWait = 30
+$ready = $false
+for ($i = 1; $i -le $maxWait; $i++) {
+    if (Test-Path $SporedSock) {
+        Success "spored socket ready (${i}s)"
+        $ready = $true
+        break
+    }
+    Start-Sleep -Seconds 1
+}
+if (-not $ready) { Warn "spored socket not found after ${maxWait}s — hyphae may not connect on first start" }
+
 Success "Daemon started"
+
+# ---------------------------------------------------------------------------
+# 6b. Register and start hyphae user agent
+# ---------------------------------------------------------------------------
+Step "Registering hyphae user agent"
+
+$HyphaeExe = Join-Path $StoreDir "hyphae\hyphae.exe"
+if (Test-Path $HyphaeExe) {
+    & $HyphaeExe install
+    if ($LASTEXITCODE -ne 0) { Warn "hyphae install returned non-zero - agent may not be registered" }
+    else { Success "Hyphae agent registered (Task Scheduler)" }
+    & $HyphaeExe start
+    if ($LASTEXITCODE -ne 0) { Warn "hyphae start returned non-zero - try running: hyphae start" }
+    else { Success "Hyphae agent started" }
+} else {
+    Warn "hyphae.exe not found at $HyphaeExe - skipping agent registration"
+}
 
 # ---------------------------------------------------------------------------
 # 7. Install node manifests to store and write registry
@@ -168,11 +201,21 @@ if ($manifests.Count -eq 0) {
         # Compute SHA-256 checksum of the installed manifest
         $hash = (Get-FileHash -Path $destManifest -Algorithm SHA256).Hash.ToLower()
 
+        # Binary path and checksum
+        $binaryPath = Join-Path $nodeStoreDir "${nodeName}.exe"
+        $binHash = ""
+        if (Test-Path $binaryPath) {
+            $binHash = (Get-FileHash -Path $binaryPath -Algorithm SHA256).Hash.ToLower()
+        }
+
         # Append YAML entry (use forward slashes for cross-tool compatibility)
-        $manifestPath = $destManifest -replace '\\', '/'
+        $manifestPath  = $destManifest -replace '\\', '/'
+        $binaryFwdPath = $binaryPath   -replace '\\', '/'
         $registryLines += "  - name: $nodeName"
         $registryLines += "    manifest: $manifestPath"
         $registryLines += "    checksum: 'sha256:$hash'"
+        $registryLines += "    binary: $binaryFwdPath"
+        $registryLines += "    binaryChecksum: 'sha256:$binHash'"
     }
 
     # Write registry file (UTF-8, no BOM)

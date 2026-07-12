@@ -61,6 +61,27 @@ Logs declared in the plist:
 
 ---
 
+## macOS Hyphae User Agent
+
+Hyphae runs as a **LaunchAgent** in the logged-in user's GUI session, not as the `_spore` system
+account. The binary lives in the system store (mode 755, world-executable); the per-user plist is
+written by `hyphae install` and registered in the `gui/<uid>` launchd domain by the installer.
+
+| What | Value |
+|------|-------|
+| Agent label | `dev.sporeos.agent` |
+| User plist path | `~/Library/LaunchAgents/dev.sporeos.agent.plist` |
+| launchd domain | `gui/<uid>` |
+| Binary | `/Library/Application Support/spore-os/store/hyphae/hyphae` (mode 755) |
+| `/usr/local/bin` symlink | `/usr/local/bin/hyphae` |
+
+The installer auto-registers the agent for `$SUDO_USER` by running
+`sudo -H -u $SUDO_USER hyphae install` followed by
+`launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/dev.sporeos.agent.plist`.
+On new user accounts, run `hyphae install && hyphae start` as that user.
+
+---
+
 # Spore OS — Linux Installed Paths
 
 This document is the source of truth for every path that `install.sh` (Linux) creates
@@ -121,3 +142,27 @@ Logs declared in the service file:
 |------|---------|
 | `/usr/share/applications/spore-shell.desktop` | `/var/lib/spore-os/store/spore-shell/spore-shell` in shell terminal |
 | `/usr/share/applications/spore-witness.desktop` | `/var/lib/spore-os/store/spore-witness/spore-witness` in shell terminal |
+
+---
+
+## Linux Hyphae User Agent
+
+Hyphae runs as a **systemd user service** in the logged-in user's session. The binary lives in the
+system store (mode 755, world-executable); the per-user unit file is written by `hyphae install`
+and enabled/started via `systemctl --user`.
+
+| What | Value |
+|------|-------|
+| Agent service | `dev.sporeos.agent.service` |
+| User unit path | `~/.config/systemd/user/dev.sporeos.agent.service` |
+| Binary | `/var/lib/spore-os/store/hyphae/hyphae` (mode 755) |
+| `/usr/local/bin` symlink | `/usr/local/bin/hyphae` |
+
+The installer auto-enables and starts the agent for `$SUDO_USER` when
+`/run/user/<uid>` is available (i.e. the user has an active session). If not,
+the unit is installed and will start automatically at next login.
+On new user accounts, run:
+```
+hyphae install
+systemctl --user enable --now dev.sporeos.agent.service
+```

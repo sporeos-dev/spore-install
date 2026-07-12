@@ -58,7 +58,19 @@ GROUP_ID=499
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/var/lib/spore-os"
 
-NODES=(spore-shell spore-witness spore-log spore)
+NODES=(spore-shell spore-witness spore-log spore hyphae)
+HYPHAE_AGENT_LABEL="dev.sporeos.agent"
+
+# ---------------------------------------------------------------------------
+# Detect the real (non-root) user who invoked sudo
+# Used later to register the hyphae user-space agent.
+# ---------------------------------------------------------------------------
+REAL_USER="${SUDO_USER:-}"
+[[ -z "$REAL_USER" ]] && REAL_USER="$(logname 2>/dev/null || true)"
+[[ "$REAL_USER" == "root" ]] && REAL_USER=""
+if [[ -n "$REAL_USER" ]]; then
+    REAL_UID="$(id -u "$REAL_USER")"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Create system group and user
@@ -142,6 +154,14 @@ step "Symlinking spore CLI to /usr/local/bin"
 
 ln -sf "${APP_SUPPORT}/store/spore/spore" /usr/local/bin/spore
 success "Symlinked: /usr/local/bin/spore → store/spore/spore"
+
+# ---------------------------------------------------------------------------
+# 3c. Symlink hyphae into /usr/local/bin
+# ---------------------------------------------------------------------------
+step "Symlinking hyphae to /usr/local/bin"
+
+ln -sf "${APP_SUPPORT}/store/hyphae/hyphae" /usr/local/bin/hyphae
+success "Symlinked: /usr/local/bin/hyphae → store/hyphae/hyphae"
 # ---------------------------------------------------------------------------
 step "Installing hub manifest"
 
@@ -187,6 +207,52 @@ systemctl restart ${SERVICE_LABEL}.service
 success "systemd service ${SERVICE_LABEL}.service registered and started"
 
 # ---------------------------------------------------------------------------
+# 5c. Wait for spored socket before starting hyphae
+# ---------------------------------------------------------------------------
+step "Waiting for spored socket"
+SPORED_SOCK="${APP_SUPPORT}/spored.sock"
+MAX_WAIT=30
+for i in $(seq 1 $MAX_WAIT); do
+    if [[ -S "$SPORED_SOCK" ]]; then
+        success "spored socket ready (${i}s)"
+        break
+    fi
+    if [[ "$i" -eq "$MAX_WAIT" ]]; then
+        warn "spored socket not found after ${MAX_WAIT}s — hyphae may not connect on first start"
+    fi
+    sleep 1
+done
+
+# ---------------------------------------------------------------------------
+# 5b. Register hyphae user agent for the invoking user
+# ---------------------------------------------------------------------------
+step "Registering hyphae user agent"
+
+if [[ -n "$REAL_USER" ]]; then
+    AGENT_SERVICE="${HYPHAE_AGENT_LABEL}.service"
+    # kardianos/service writes the unit file to ~/.config/systemd/user/
+    sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" install
+    success "Hyphae systemd user unit written for ${REAL_USER}"
+    # Reload and enable the user unit; start only if XDG_RUNTIME_DIR is available
+    XDG_RT="/run/user/${REAL_UID}"
+    if [[ -d "$XDG_RT" ]]; then
+        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+            systemctl --user daemon-reload
+        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+            systemctl --user enable "$AGENT_SERVICE"
+        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+            systemctl --user restart "$AGENT_SERVICE" \
+            && success "Hyphae agent started for ${REAL_USER}" \
+            || warn "Could not start hyphae agent now (no active session?). It will start on next login."
+    else
+        warn "${XDG_RT} not found — hyphae agent enabled but not started (will start on next login)."
+    fi
+else
+    warn "Could not determine the invoking user — hyphae agent not auto-registered."
+    warn "Run as the target user after install: hyphae install && systemctl --user start ${HYPHAE_AGENT_LABEL}.service"
+fi
+
+# ---------------------------------------------------------------------------
 # 6. Install node manifests to store and write registry
 # ---------------------------------------------------------------------------
 step "Installing node manifests to store"
@@ -219,14 +285,23 @@ else
         chmod 644 "$dest_manifest"
         success "Stored manifest: $dest_manifest"
 
-        # Compute SHA-256 checksum
+        # Compute SHA-256 checksum of manifest
         hash="$(sha256sum "$dest_manifest" | awk '{print $1}')"
+
+        # Binary path and checksum
+        dest_binary="${node_store_dir}/${node_name}"
+        bin_hash=""
+        if [[ -f "$dest_binary" ]]; then
+            bin_hash="$(sha256sum "$dest_binary" | awk '{print $1}')"
+        fi
 
         # Append YAML entry
         {
             printf '  - name: %s\n' "$node_name"
             printf '    manifest: %s\n' "$dest_manifest"
             printf "    checksum: 'sha256:%s'\n" "$hash"
+            printf '    binary: %s\n' "$dest_binary"
+            printf "    binaryChecksum: 'sha256:%s'\n" "$bin_hash"
         } >> "$REGISTRY_FILE"
     done
 

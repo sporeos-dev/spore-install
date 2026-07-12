@@ -122,6 +122,31 @@ foreach ($node in $Nodes) {
 Success 'nodes -> dist\{amd64,arm64}\bin\'
 
 # ---------------------------------------------------------------------------
+# 2b. Build hyphae user agent
+# ---------------------------------------------------------------------------
+Step "Building hyphae user agent"
+
+$HyphaeDir = Join-Path $env:DEV 'spore-hyphae\hyphae'
+if (-not (Test-Path $HyphaeDir)) { Die "hyphae source not found at $HyphaeDir" }
+
+Push-Location $HyphaeDir
+try {
+    Write-Host "  Running tests..."
+    & go test ./... -count=1
+    if ($LASTEXITCODE -ne 0) { Die "hyphae tests failed - aborting build" }
+
+    Build-WindowsBinaries 'hyphae'
+
+    foreach ($arch in $Archs) {
+        Move-Item "hyphae_${arch}.exe" "$DistDir\$arch\bin\hyphae.exe" -Force
+    }
+    Copy-Item 'hyphae.manifest.spore.yaml' "$DistDir\nodes\hyphae.manifest.spore.yaml"
+} finally {
+    Pop-Location
+}
+Success 'hyphae -> dist\{amd64,arm64}\bin\hyphae.exe'
+
+# ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 Step "Staging installer scripts"
@@ -145,6 +170,15 @@ foreach ($arch in $Archs) {
         $rel = $_.FullName.Substring($DistDir.Length + 1).Replace('\', '/')
         $lines.Add("$($h.Hash.ToLower())  $rel")
     }
+}
+
+$sporeMani = Get-FileHash "$DistDir\spored.manifest.spore.yaml" -Algorithm SHA256
+$lines.Add("$($sporeMani.Hash.ToLower())  spored.manifest.spore.yaml")
+
+Get-ChildItem "$DistDir\nodes\*.manifest.spore.yaml" | Sort-Object Name | ForEach-Object {
+    $h   = Get-FileHash $_.FullName -Algorithm SHA256
+    $rel = $_.FullName.Substring($DistDir.Length + 1).Replace('\', '/')
+    $lines.Add("$($h.Hash.ToLower())  $rel")
 }
 
 $lines | Set-Content $checksumFile -Encoding UTF8
