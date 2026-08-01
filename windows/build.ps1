@@ -122,7 +122,32 @@ foreach ($node in $Nodes) {
 Success 'nodes -> dist\{amd64,arm64}\bin\'
 
 # ---------------------------------------------------------------------------
-# 2b. Build hyphae user agent
+# 2b. Build spore-dialog node
+# ---------------------------------------------------------------------------
+Step "Building spore-dialog node"
+
+$DialogDir = Join-Path $env:DEV 'spore-dialog\spore-dialog'
+if (-not (Test-Path $DialogDir)) { Die "spore-dialog source not found at $DialogDir" }
+
+Push-Location $DialogDir
+try {
+    Write-Host "  Running tests..."
+    & go test ./... -count=1
+    if ($LASTEXITCODE -ne 0) { Die "spore-dialog tests failed - aborting build" }
+
+    Build-WindowsBinaries 'spore-dialog'
+
+    foreach ($arch in $Archs) {
+        Move-Item "spore-dialog_${arch}.exe" "$DistDir\$arch\bin\spore-dialog.exe" -Force
+    }
+    Copy-Item 'spore-dialog.manifest.spore.yaml' "$DistDir\nodes\spore-dialog.manifest.spore.yaml"
+} finally {
+    Pop-Location
+}
+Success 'spore-dialog -> dist\{amd64,arm64}\bin\spore-dialog.exe'
+
+# ---------------------------------------------------------------------------
+# 2c. Build hyphae user agent
 # ---------------------------------------------------------------------------
 Step "Building hyphae user agent"
 

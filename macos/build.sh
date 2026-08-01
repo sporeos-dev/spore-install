@@ -109,7 +109,26 @@ for node in "${NODES[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
-# 2b. Build hyphae user agent
+# 2b. Build spore-dialog node
+# ---------------------------------------------------------------------------
+step "Building spore-dialog node"
+
+DIALOG_DIR="$DEV/spore-dialog/spore-dialog"
+[[ -d "$DIALOG_DIR" ]] || die "spore-dialog source not found at $DIALOG_DIR"
+
+(
+    cd "$DIALOG_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "spore-dialog tests failed — aborting build"
+    build_universal spore-dialog
+    cp spore-dialog                          "$DIST_DIR/bin/spore-dialog"
+    cp spore-dialog.manifest.spore.yaml      "$DIST_DIR/nodes/spore-dialog.manifest.spore.yaml"
+    rm -f spore-dialog
+)
+success "spore-dialog → dist/bin/spore-dialog"
+
+# ---------------------------------------------------------------------------
+# 2c. Build hyphae user agent
 # ---------------------------------------------------------------------------
 step "Building hyphae user agent"
 

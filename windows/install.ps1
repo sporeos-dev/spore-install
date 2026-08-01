@@ -36,7 +36,7 @@ $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Sp
 
 $env:SPORE_DATA_DIR = $InstallDir
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore', 'hyphae')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore', 'spore-dialog', 'hyphae')
 $HyphaeAgentLabel = 'dev.sporeos.agent'
 
 # ---------------------------------------------------------------------------

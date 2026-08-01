@@ -58,7 +58,7 @@ GROUP_ID=499
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/var/lib/spore-os"
 
-NODES=(spore-shell spore-witness spore-log spore hyphae)
+NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------
