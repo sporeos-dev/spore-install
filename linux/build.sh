@@ -70,6 +70,20 @@ build_linux() {
 }
 
 # ---------------------------------------------------------------------------
+# 0. Build spore-client-libs (C static libraries + spore_go)
+# ---------------------------------------------------------------------------
+step "Building spore-client-libs"
+
+CLIENT_LIBS_DIR="$DEV/spore-client-libs"
+[[ -d "$CLIENT_LIBS_DIR" ]] || die "spore-client-libs not found at $CLIENT_LIBS_DIR"
+
+(
+    cd "$CLIENT_LIBS_DIR"
+    make release
+)
+success "spore-client-libs built"
+
+# ---------------------------------------------------------------------------
 # 1. Build spored daemon
 # ---------------------------------------------------------------------------
 step "Building spored daemon"

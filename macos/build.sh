@@ -62,11 +62,81 @@ build_universal() {
     echo "    Building arm64..."
     CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o "${out_name}_arm64" .
     echo "    Building amd64..."
-    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o "${out_name}_amd64" .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+        CC="clang -arch x86_64" CXX="clang++ -arch x86_64" \
+        go build -o "${out_name}_amd64" .
     echo "    Linking universal binary..."
     lipo -create "${out_name}_arm64" "${out_name}_amd64" -output "${out_name}"
     rm -f "${out_name}_arm64" "${out_name}_amd64"
 }
+
+# ---------------------------------------------------------------------------
+# Helper: build spore-client-libs C libraries as fat (arm64 + x86_64).
+# Compiles both slices fresh from source so this step is always idempotent.
+# Usage: make_fat_client_libs <client-libs-root>
+# ---------------------------------------------------------------------------
+make_fat_client_libs() {
+    local root="$1"
+    local dist="$root/dist"
+
+    echo "    Building parser (arm64 + x86_64)..."
+    (
+        cd "$root/parser"
+        local arm_objs=() x86_objs=()
+        for src in source/*.cpp; do
+            clang++ -std=c++17 -arch arm64  -Iinclude -Isource -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_arm.o"
+            clang++ -std=c++17 -arch x86_64 -Iinclude -Isource -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_x86.o"
+            arm_objs+=("${src%.cpp}_arm.o")
+            x86_objs+=("${src%.cpp}_x86.o")
+        done
+        ar rcs "$dist/libspore_parser_arm.a" "${arm_objs[@]}"
+        ar rcs "$dist/libspore_parser_x86.a" "${x86_objs[@]}"
+        rm -f "${arm_objs[@]}" "${x86_objs[@]}"
+    )
+    lipo -create "$dist/libspore_parser_arm.a" "$dist/libspore_parser_x86.a" \
+         -output "$dist/libspore_parser.a"
+    rm -f "$dist/libspore_parser_arm.a" "$dist/libspore_parser_x86.a"
+
+    echo "    Building spore_c (arm64 + x86_64)..."
+    (
+        cd "$root/spore_c"
+        local arm_objs=() x86_objs=()
+        for src in source/*.cpp; do
+            clang++ -std=c++17 -arch arm64  -fPIC -Iinclude -Isource -I../parser/include -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_arm.o"
+            clang++ -std=c++17 -arch x86_64 -fPIC -Iinclude -Isource -I../parser/include -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_x86.o"
+            arm_objs+=("${src%.cpp}_arm.o")
+            x86_objs+=("${src%.cpp}_x86.o")
+        done
+        ar rcs "$dist/libspore_c_arm.a" "${arm_objs[@]}"
+        ar rcs "$dist/libspore_c_x86.a" "${x86_objs[@]}"
+        clang++ -arch arm64  -dynamiclib -o "$dist/libspore_c_arm.dylib" "${arm_objs[@]}" "$dist/libspore_parser.a"
+        clang++ -arch x86_64 -dynamiclib -o "$dist/libspore_c_x86.dylib" "${x86_objs[@]}" "$dist/libspore_parser.a"
+        rm -f "${arm_objs[@]}" "${x86_objs[@]}"
+    )
+    lipo -create "$dist/libspore_c_arm.a" "$dist/libspore_c_x86.a" \
+         -output "$dist/libspore_c.a"
+    rm -f "$dist/libspore_c_arm.a" "$dist/libspore_c_x86.a"
+
+    lipo -create "$dist/libspore_c_arm.dylib" "$dist/libspore_c_x86.dylib" \
+         -output "$dist/libspore_c.dylib"
+    rm -f "$dist/libspore_c_arm.dylib" "$dist/libspore_c_x86.dylib"
+}
+
+# ---------------------------------------------------------------------------
+# 0. Build spore-client-libs (C static libraries + spore_go)
+# ---------------------------------------------------------------------------
+step "Building spore-client-libs"
+
+CLIENT_LIBS_DIR="$DEV/spore-client-libs"
+[[ -d "$CLIENT_LIBS_DIR" ]] || die "spore-client-libs not found at $CLIENT_LIBS_DIR"
+
+(
+    cd "$CLIENT_LIBS_DIR"
+    make release
+)
+step "Making spore-client-libs fat (arm64 + x86_64)"
+make_fat_client_libs "$CLIENT_LIBS_DIR"
+success "spore-client-libs built"
 
 # ---------------------------------------------------------------------------
 # 1. Build spored daemon

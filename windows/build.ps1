@@ -70,6 +70,23 @@ function Build-WindowsBinaries ([string]$BaseName) {
 }
 
 # ---------------------------------------------------------------------------
+# 0. Build spore-client-libs (C static libraries + spore_go)
+# ---------------------------------------------------------------------------
+Step "Building spore-client-libs"
+
+$ClientLibsDir = Join-Path $env:DEV 'spore-client-libs'
+if (-not (Test-Path $ClientLibsDir)) { Die "spore-client-libs not found at $ClientLibsDir" }
+
+Push-Location $ClientLibsDir
+try {
+    & make release
+    if ($LASTEXITCODE -ne 0) { Die "spore-client-libs make release failed" }
+} finally {
+    Pop-Location
+}
+Success 'spore-client-libs built'
+
+# ---------------------------------------------------------------------------
 # 1. Build spored daemon
 # ---------------------------------------------------------------------------
 Step "Building spored daemon"
