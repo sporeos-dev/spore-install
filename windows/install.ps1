@@ -40,6 +40,26 @@ $Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore', 'spore-dialog',
 $HyphaeAgentLabel = 'dev.sporeos.agent'
 
 # ---------------------------------------------------------------------------
+# 0. Rebuild spore-client-libs with any pending changes
+# ---------------------------------------------------------------------------
+Step "Building spore-client-libs"
+
+if ($env:DEV) {
+    $ClientLibsDir = Join-Path $env:DEV 'spore-client-libs'
+    if (-not (Test-Path $ClientLibsDir)) { Die "spore-client-libs not found at $ClientLibsDir" }
+    Push-Location $ClientLibsDir
+    try {
+        & make release
+        if ($LASTEXITCODE -ne 0) { Die "spore-client-libs make release failed" }
+    } finally {
+        Pop-Location
+    }
+    Success 'spore-client-libs built'
+} else {
+    Warn "DEV is not set — skipping spore-client-libs rebuild"
+}
+
+# ---------------------------------------------------------------------------
 # 1. Create required directories
 # ---------------------------------------------------------------------------
 Step "Creating user-level directories"

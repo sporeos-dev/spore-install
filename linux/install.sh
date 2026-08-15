@@ -73,6 +73,24 @@ if [[ -n "$REAL_USER" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 0. Rebuild spore-client-libs with any pending changes
+# ---------------------------------------------------------------------------
+step "Building spore-client-libs"
+
+if [[ -n "${DEV:-}" ]]; then
+    CLIENT_LIBS_DIR="$DEV/spore-client-libs"
+    [[ -d "$CLIENT_LIBS_DIR" ]] || die "spore-client-libs not found at $CLIENT_LIBS_DIR"
+    if [[ -n "$REAL_USER" ]]; then
+        sudo -u "$REAL_USER" bash -c "cd '$CLIENT_LIBS_DIR' && make release"
+    else
+        (cd "$CLIENT_LIBS_DIR" && make release)
+    fi
+    success "spore-client-libs built"
+else
+    warn "DEV is not set — skipping spore-client-libs rebuild"
+fi
+
+# ---------------------------------------------------------------------------
 # 1. Create system group and user
 # ---------------------------------------------------------------------------
 step "Creating system user and group: ${SYSTEM_GROUP} / ${SYSTEM_USER}"

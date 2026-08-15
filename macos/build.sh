@@ -109,17 +109,14 @@ make_fat_client_libs() {
         done
         ar rcs "$dist/libspore_c_arm.a" "${arm_objs[@]}"
         ar rcs "$dist/libspore_c_x86.a" "${x86_objs[@]}"
-        clang++ -arch arm64  -dynamiclib -o "$dist/libspore_c_arm.dylib" "${arm_objs[@]}" "$dist/libspore_parser.a"
-        clang++ -arch x86_64 -dynamiclib -o "$dist/libspore_c_x86.dylib" "${x86_objs[@]}" "$dist/libspore_parser.a"
         rm -f "${arm_objs[@]}" "${x86_objs[@]}"
     )
     lipo -create "$dist/libspore_c_arm.a" "$dist/libspore_c_x86.a" \
          -output "$dist/libspore_c.a"
     rm -f "$dist/libspore_c_arm.a" "$dist/libspore_c_x86.a"
 
-    lipo -create "$dist/libspore_c_arm.dylib" "$dist/libspore_c_x86.dylib" \
-         -output "$dist/libspore_c.dylib"
-    rm -f "$dist/libspore_c_arm.dylib" "$dist/libspore_c_x86.dylib"
+    # Remove any dylibs so the Go linker uses only the static archives.
+    rm -f "$dist"/*.dylib
 }
 
 # ---------------------------------------------------------------------------
