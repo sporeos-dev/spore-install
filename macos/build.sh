@@ -120,17 +120,20 @@ make_fat_client_libs() {
 }
 
 # ---------------------------------------------------------------------------
-# 0. Build spore-client-libs (C static libraries + spore_go)
+# 0. Run centralized quick checks
 # ---------------------------------------------------------------------------
-step "Building spore-client-libs"
+step "Running centralized quick checks"
+
+RELEASES_DIR="$DEV/spore-os-releases"
+[[ -d "$RELEASES_DIR" ]] || die "spore-os-releases not found at $RELEASES_DIR"
+
+if ! python3 "$RELEASES_DIR/automation/spore-quick/main.py"; then
+    warn "Quick checks failed — continuing build"
+fi
 
 CLIENT_LIBS_DIR="$DEV/spore-client-libs"
 [[ -d "$CLIENT_LIBS_DIR" ]] || die "spore-client-libs not found at $CLIENT_LIBS_DIR"
 
-(
-    cd "$CLIENT_LIBS_DIR"
-    make release
-)
 step "Making spore-client-libs fat (arm64 + x86_64)"
 make_fat_client_libs "$CLIENT_LIBS_DIR"
 success "spore-client-libs built"

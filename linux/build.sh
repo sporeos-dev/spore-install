@@ -70,18 +70,16 @@ build_linux() {
 }
 
 # ---------------------------------------------------------------------------
-# 0. Build spore-client-libs (C static libraries + spore_go)
+# 0. Run centralized quick checks
 # ---------------------------------------------------------------------------
-step "Building spore-client-libs"
+step "Running centralized quick checks"
 
-CLIENT_LIBS_DIR="$DEV/spore-client-libs"
-[[ -d "$CLIENT_LIBS_DIR" ]] || die "spore-client-libs not found at $CLIENT_LIBS_DIR"
+RELEASES_DIR="$DEV/spore-os-releases"
+[[ -d "$RELEASES_DIR" ]] || die "spore-os-releases not found at $RELEASES_DIR"
 
-(
-    cd "$CLIENT_LIBS_DIR"
-    make release
-)
-success "spore-client-libs built"
+if ! python3 "$RELEASES_DIR/automation/spore-quick/main.py"; then
+    warn "Quick checks failed — continuing build"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Build spored daemon

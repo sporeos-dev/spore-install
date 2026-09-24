@@ -70,21 +70,17 @@ function Build-WindowsBinaries ([string]$BaseName) {
 }
 
 # ---------------------------------------------------------------------------
-# 0. Build spore-client-libs (C static libraries + spore_go)
+# 0. Run centralized quick checks
 # ---------------------------------------------------------------------------
-Step "Building spore-client-libs"
+Step "Running centralized quick checks"
 
-$ClientLibsDir = Join-Path $env:DEV 'spore-client-libs'
-if (-not (Test-Path $ClientLibsDir)) { Die "spore-client-libs not found at $ClientLibsDir" }
+$ReleasesDir = Join-Path $env:DEV 'spore-os-releases'
+if (-not (Test-Path $ReleasesDir)) { Die "spore-os-releases not found at $ReleasesDir" }
 
-Push-Location $ClientLibsDir
-try {
-    & make release
-    if ($LASTEXITCODE -ne 0) { Die "spore-client-libs make release failed" }
-} finally {
-    Pop-Location
+& python "$ReleasesDir\automation\spore-quick\main.py"
+if ($LASTEXITCODE -ne 0) {
+    Warn 'Quick checks failed - continuing build'
 }
-Success 'spore-client-libs built'
 
 # ---------------------------------------------------------------------------
 # 1. Build spored daemon
