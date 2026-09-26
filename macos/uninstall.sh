@@ -39,6 +39,7 @@ echo "  ║  This will permanently remove:                           ║"
 echo "  ║    • The spored daemon and all CLI node binaries         ║"
 echo "  ║    • The hyphae user agent (current user)               ║"
 echo "  ║    • All Spore OS system directories and data            ║"
+echo "  ║    • The Spore terminal hint integration                 ║"
 echo "  ║    • The _spore system user and group                    ║"
 echo "  ║    • Spore Shell.app and Spore Witness.app               ║"
 echo "  ╚══════════════════════════════════════════════════════════╝"
@@ -51,6 +52,8 @@ SERVICE_LABEL="dev.sporeos.spored"
 SYSTEM_USER="_spore"
 SYSTEM_GROUP="_spore"
 APP_SUPPORT="/Library/Application Support/spore-os"
+ZSH_START="# >>> Spore terminal hints >>>"
+ZSH_END="# <<< Spore terminal hints <<<"
 
 NODES=(spore-shell spore-witness spore-log spore)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
@@ -117,6 +120,24 @@ if [[ -n "$REAL_USER" ]]; then
 else
     warn "Could not determine the invoking user — hyphae agent not auto-deregistered."
     warn "Run as the target user: hyphae uninstall"
+fi
+
+# ---------------------------------------------------------------------------
+# 2c. Remove the invoking user's zsh integration hook
+# ---------------------------------------------------------------------------
+step "Removing zsh integration hook"
+
+if [[ -n "$REAL_USER" ]]; then
+    ZSHRC="$REAL_HOME/.zshrc"
+    if [[ -f "$ZSHRC" ]] && grep -Fqx "$ZSH_START" "$ZSHRC"; then
+        sed -i '' "/^${ZSH_START}$/,/^${ZSH_END}$/d" "$ZSHRC"
+        chown "$REAL_USER" "$ZSHRC"
+        success "Removed Spore terminal hints from $ZSHRC"
+    else
+        warn "Spore terminal hints are not enabled in $ZSHRC — skipping"
+    fi
+else
+    warn "Could not determine the invoking user — zsh integration hook not removed."
 fi
 
 # ---------------------------------------------------------------------------

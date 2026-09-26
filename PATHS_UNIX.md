@@ -22,6 +22,7 @@ paths — no hardcoded alternatives.
 |------|---------|
 | `/Library/Application Support/spore-os/data` | Persistent daemon data |
 | `/Library/Application Support/spore-os/store` | Package store (node manifests, one sub-dir per node) |
+| `/Library/Application Support/spore-os/integrations/zsh.zsh` | zsh Tab hint integration, sourced by the installing user's `.zshrc` |
 | `/Library/Application Support/spore-os/nodes.registry.yaml` | Node registry (paths + checksums) |
 | `/Library/Application Support/spore-os/spored.sock` | Unix domain socket (created at runtime by spored) |
 | `/Library/Logs/spore-os` | Daemon and node log files |

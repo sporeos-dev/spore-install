@@ -49,7 +49,7 @@ NODES=(spore-shell spore-witness spore-log spore)
 # ---------------------------------------------------------------------------
 step "Preparing dist/ directory"
 rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR/bin" "$DIST_DIR/nodes"
+mkdir -p "$DIST_DIR/bin" "$DIST_DIR/integrations" "$DIST_DIR/nodes"
 success "dist/ created at $DIST_DIR"
 
 # ---------------------------------------------------------------------------
@@ -224,6 +224,13 @@ cp "$SCRIPT_DIR/install.sh"   "$DIST_DIR/install.sh"
 cp "$SCRIPT_DIR/uninstall.sh" "$DIST_DIR/uninstall.sh"
 chmod +x "$DIST_DIR/install.sh" "$DIST_DIR/uninstall.sh"
 success "install.sh and uninstall.sh → dist/"
+
+# ---------------------------------------------------------------------------
+# 3b. Stage terminal integrations
+# ---------------------------------------------------------------------------
+step "Staging terminal integrations"
+cp "$DEV/spore-core-nodes/spore/integrations/zsh.zsh" "$DIST_DIR/integrations/zsh.zsh"
+success "zsh.zsh → dist/integrations/"
 
 # ---------------------------------------------------------------------------
 # 4. Write SHA-256 checksums for all binaries

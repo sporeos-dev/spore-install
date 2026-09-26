@@ -39,6 +39,8 @@ GROUP_ID=499
 PLIST_PATH="/Library/LaunchDaemons/dev.sporeos.spored.plist"
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/Library/Application Support/spore-os"
+INTEGRATIONS_DIR="${APP_SUPPORT}/integrations"
+ZSH_INTEGRATION="${INTEGRATIONS_DIR}/zsh.zsh"
 
 NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
@@ -116,6 +118,37 @@ for node in "${NODES[@]}"; do
     chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/store/${node}/${node}"
     success "Installed $node → store/${node}/${node}"
 done
+
+# ---------------------------------------------------------------------------
+# 3a. Install terminal integrations
+# ---------------------------------------------------------------------------
+step "Installing terminal integrations"
+
+install -d -m 755 -o root -g wheel "$INTEGRATIONS_DIR"
+install -m 644 -o root -g wheel "$DIST_DIR/integrations/zsh.zsh" "$ZSH_INTEGRATION"
+success "Installed zsh integration → $ZSH_INTEGRATION"
+
+if [[ -n "$REAL_USER" ]]; then
+    ZSHRC="$REAL_HOME/.zshrc"
+    ZSH_START="# >>> Spore terminal hints >>>"
+    ZSH_END="# <<< Spore terminal hints <<<"
+
+    touch "$ZSHRC"
+    if ! grep -Fqx "$ZSH_START" "$ZSHRC"; then
+        cat >> "$ZSHRC" <<EOF
+
+$ZSH_START
+[[ -r "$ZSH_INTEGRATION" ]] && source "$ZSH_INTEGRATION"
+$ZSH_END
+EOF
+        success "Enabled Spore terminal hints in $ZSHRC"
+    else
+        success "Spore terminal hints already enabled in $ZSHRC"
+    fi
+    chown "$REAL_USER" "$ZSHRC"
+else
+    warn "Could not determine the invoking user — zsh integration was installed but not enabled."
+fi
 
 # ---------------------------------------------------------------------------
 # 3b. Symlink spore CLI into /usr/local/bin
