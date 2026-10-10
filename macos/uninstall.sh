@@ -38,7 +38,7 @@ echo "  ╠═══════════════════════
 echo "  ║  This will permanently remove:                           ║"
 echo "  ║    • The spored daemon and all CLI node binaries         ║"
 echo "  ║    • The hyphae user agent (current user)               ║"
-echo "  ║    • All Spore OS system directories and data            ║"
+echo "  ║    • All Spore OS system directories except node data    ║"
 echo "  ║    • The Spore terminal hint integration                 ║"
 echo "  ║    • The _spore system user and group                    ║"
 echo "  ║    • Spore Shell.app and Spore Witness.app               ║"
@@ -52,6 +52,7 @@ SERVICE_LABEL="dev.sporeos.spored"
 SYSTEM_USER="_spore"
 SYSTEM_GROUP="_spore"
 APP_SUPPORT="/Library/Application Support/spore-os"
+DATA_DIR="${APP_SUPPORT}/data"
 ZSH_START="# >>> Spore terminal hints >>>"
 ZSH_END="# <<< Spore terminal hints <<<"
 
@@ -160,14 +161,21 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Remove system directories
+# 4. Remove system directories while preserving node data
 # ---------------------------------------------------------------------------
-step "Removing system directories"
+step "Removing system directories (preserving node data)"
 
-for path in \
-    "$APP_SUPPORT" \
-    "/Library/Logs/spore-os"
-do
+if [[ -d "$APP_SUPPORT" ]]; then
+    find "$APP_SUPPORT" -mindepth 1 -maxdepth 1 ! -name "$(basename "$DATA_DIR")" -exec rm -rf {} +
+    success "Removed installed files from $APP_SUPPORT"
+    if [[ -d "$DATA_DIR" ]]; then
+        success "Preserved $DATA_DIR"
+    fi
+else
+    warn "$APP_SUPPORT not found — skipping"
+fi
+
+for path in "/Library/Logs/spore-os"; do
     if [[ -e "$path" ]]; then
         rm -rf "$path"
         success "Removed $path"

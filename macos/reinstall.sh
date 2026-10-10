@@ -35,14 +35,15 @@ DIST_DIR="$REPO_ROOT/dist"
 CLIENT_LIBS_DIST="$(cd "$REPO_ROOT/.." && pwd)/spore-client-libs/dist"
 
 # ---------------------------------------------------------------------------
-# 1. Uninstall — auto-confirm since this script is explicitly for reinstalling
+# 1. Uninstall — auto-confirm since this script is explicitly for reinstalling.
+# Use the source script because dist/ is rebuilt only after this step.
 # ---------------------------------------------------------------------------
 step "Uninstalling current installation"
 
-if [[ -x "$DIST_DIR/uninstall.sh" ]]; then
-    echo "yes" | sudo bash "$DIST_DIR/uninstall.sh"
+if [[ -x "$SCRIPT_DIR/uninstall.sh" ]]; then
+    echo "yes" | sudo bash "$SCRIPT_DIR/uninstall.sh"
 else
-    warn "dist/uninstall.sh not found — skipping uninstall"
+    warn "macos/uninstall.sh not found — skipping uninstall"
 fi
 
 # ---------------------------------------------------------------------------

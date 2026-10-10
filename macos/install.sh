@@ -39,6 +39,7 @@ GROUP_ID=499
 PLIST_PATH="/Library/LaunchDaemons/dev.sporeos.spored.plist"
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/Library/Application Support/spore-os"
+DATA_DIR="${APP_SUPPORT}/data"
 INTEGRATIONS_DIR="${APP_SUPPORT}/integrations"
 ZSH_INTEGRATION="${INTEGRATIONS_DIR}/zsh.zsh"
 
@@ -92,10 +93,17 @@ chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}"
 success "${APP_SUPPORT}"
 
 declare -a DIRS=(
-    "${APP_SUPPORT}/data"
     "${APP_SUPPORT}/store"
     "/Library/Logs/spore-os"
 )
+
+if [[ ! -d "$DATA_DIR" ]]; then
+    mkdir -p "$DATA_DIR"
+    success "$DATA_DIR"
+else
+    success "$DATA_DIR (preserved)"
+fi
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$DATA_DIR"
 
 for dir in "${DIRS[@]}"; do
     mkdir -p "$dir"

@@ -29,6 +29,7 @@ $Arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' 
 # ---------------------------------------------------------------------------
 $InstallDir   = Join-Path $env:LOCALAPPDATA 'spore-os'
 $DataDir      = $InstallDir
+$NodeDataDir  = Join-Path $DataDir 'data'
 $LogDir       = Join-Path $DataDir 'logs'
 $StoreDir     = Join-Path $DataDir 'store'
 $RegistryFile = Join-Path $DataDir 'nodes.registry.yaml'
@@ -47,10 +48,16 @@ Step "Creating user-level directories"
 $Dirs = @(
     $InstallDir,
     $DataDir,
-    (Join-Path $DataDir 'data'),
     $StoreDir,
     $LogDir
 )
+
+if (-not (Test-Path $NodeDataDir)) {
+    New-Item -ItemType Directory -Force -Path $NodeDataDir | Out-Null
+    Success $NodeDataDir
+} else {
+    Success "$NodeDataDir (preserved)"
+}
 
 foreach ($dir in $Dirs) {
     if (-not (Test-Path $dir)) {

@@ -57,6 +57,7 @@ GROUP_ID=499
 
 SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/var/lib/spore-os"
+DATA_DIR="${APP_SUPPORT}/data"
 
 NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
@@ -114,10 +115,18 @@ fi
 step "Creating system directories"
 
 declare -a DIRS=(
-    "${APP_SUPPORT}/data"
     "${APP_SUPPORT}/store"
     "/var/log/spore-os"
 )
+
+if [[ ! -d "$DATA_DIR" ]]; then
+    mkdir -p "$DATA_DIR"
+    success "$DATA_DIR"
+else
+    success "$DATA_DIR (preserved)"
+fi
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "$DATA_DIR"
+chmod 755 "$DATA_DIR"
 
 for dir in "${DIRS[@]}"; do
     mkdir -p "$dir"

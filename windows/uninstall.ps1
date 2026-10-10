@@ -23,7 +23,7 @@ Write-Host "  +----------------------------------------------------------+" -For
 Write-Host "  |          SPORE OS - UNINSTALL CONFIRMATION               |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
 Write-Host "  |  This will permanently remove (User-space):              |" -ForegroundColor Red
-Write-Host "  |    * All user-space binaries and data                    |" -ForegroundColor Red
+Write-Host "  |    * All user-space binaries except node data            |" -ForegroundColor Red
 Write-Host "  |    * The hyphae user agent (Task Scheduler entry)        |" -ForegroundColor Red
 Write-Host "  |    * Spore Shell and Spore Witness Start Menu shortcuts  |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
@@ -38,6 +38,7 @@ if ($Confirm -ne 'yes') { Die "Aborted - you must type exactly: yes" }
 $InstallDir   = Join-Path $env:LOCALAPPDATA 'spore-os'
 $BinDir       = Join-Path $InstallDir 'bin'
 $DataDir      = $InstallDir
+$NodeDataDir  = Join-Path $DataDir 'data'
 $StoreDir     = Join-Path $DataDir 'store'
 $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
@@ -77,14 +78,19 @@ foreach ($node in $Nodes) {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Remove directories
+# 2. Remove directories while preserving node data
 # ---------------------------------------------------------------------------
-Step "Removing directories"
+Step "Removing directories (preserving node data)"
 
 if (Test-Path $InstallDir) {
     try {
-        Remove-Item -Recurse -Force $InstallDir
-        Success "Removed $InstallDir"
+        Get-ChildItem -LiteralPath $InstallDir -Force |
+            Where-Object { $_.Name -ne 'data' } |
+            Remove-Item -Recurse -Force
+        Success "Removed installed files from $InstallDir"
+        if (Test-Path $NodeDataDir) {
+            Success "Preserved $NodeDataDir"
+        }
     } catch {
         Warn "Could not remove some files in $InstallDir (they may be in use): $_"
     }
