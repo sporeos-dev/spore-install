@@ -185,6 +185,31 @@ try {
 Success 'hyphae -> dist\{amd64,arm64}\bin\hyphae.exe'
 
 # ---------------------------------------------------------------------------
+# 2d. Build store node
+# ---------------------------------------------------------------------------
+Step "Building store node"
+
+$StoreNodeDir = Join-Path $env:DEV 'spore-store\store'
+if (-not (Test-Path $StoreNodeDir)) { Die "store source not found at $StoreNodeDir" }
+
+Push-Location $StoreNodeDir
+try {
+    Write-Host "  Running tests..."
+    & go test ./... -count=1
+    if ($LASTEXITCODE -ne 0) { Die "store tests failed - aborting build" }
+
+    Build-WindowsBinaries 'store'
+
+    foreach ($arch in $Archs) {
+        Move-Item "store_${arch}.exe" "$DistDir\$arch\bin\store.exe" -Force
+    }
+    Copy-Item 'store.manifest.spore.yaml' "$DistDir\nodes\store.manifest.spore.yaml"
+} finally {
+    Pop-Location
+}
+Success 'store -> dist\{amd64,arm64}\bin\store.exe'
+
+# ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 Step "Staging installer scripts"

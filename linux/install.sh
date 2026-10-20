@@ -59,7 +59,7 @@ SERVICE_LABEL="dev.sporeos.spored"
 APP_SUPPORT="/var/lib/spore-os"
 DATA_DIR="${APP_SUPPORT}/data"
 
-NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae)
+NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae store)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------

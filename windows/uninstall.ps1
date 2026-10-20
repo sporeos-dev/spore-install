@@ -42,7 +42,7 @@ $NodeDataDir  = Join-Path $DataDir 'data'
 $StoreDir     = Join-Path $DataDir 'store'
 $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore', 'store')
 $HyphaeAgentLabel = 'dev.sporeos.agent'
 $HyphaeExe = Join-Path $StoreDir 'hyphae\hyphae.exe'
 

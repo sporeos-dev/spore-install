@@ -38,6 +38,7 @@ paths — no hardcoded alternatives.
 | `/Library/Application Support/spore-os/store/spore-shell/spore-shell` | Shell node |
 | `/Library/Application Support/spore-os/store/spore-witness/spore-witness` | Witness node |
 | `/Library/Application Support/spore-os/store/spore-log/spore-log` | Log node |
+| `/Library/Application Support/spore-os/store/store/store` | Store node |
 
 ---
 
@@ -122,6 +123,7 @@ paths — no hardcoded alternatives.
 | `/var/lib/spore-os/store/spore-shell/spore-shell` | Shell node |
 | `/var/lib/spore-os/store/spore-witness/spore-witness` | Witness node |
 | `/var/lib/spore-os/store/spore-log/spore-log` | Log node |
+| `/var/lib/spore-os/store/store/store` | Store node |
 
 ---
 

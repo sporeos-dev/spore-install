@@ -43,7 +43,7 @@ DATA_DIR="${APP_SUPPORT}/data"
 INTEGRATIONS_DIR="${APP_SUPPORT}/integrations"
 ZSH_INTEGRATION="${INTEGRATIONS_DIR}/zsh.zsh"
 
-NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae)
+NODES=(spore-shell spore-witness spore-log spore spore-dialog hyphae store)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------

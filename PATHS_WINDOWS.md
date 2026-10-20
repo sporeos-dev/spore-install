@@ -38,6 +38,7 @@ paths — no hardcoded alternatives.
 | `%LOCALAPPDATA%\spore-os\store\spore-shell\spore-shell.exe` | Shell node |
 | `%LOCALAPPDATA%\spore-os\store\spore-witness\spore-witness.exe` | Witness node |
 | `%LOCALAPPDATA%\spore-os\store\spore-log\spore-log.exe` | Log node |
+| `%LOCALAPPDATA%\spore-os\store\store\store.exe` | Store node |
 
 `%LOCALAPPDATA%\spore-os` is appended to the **User** `PATH` by the installer.
 

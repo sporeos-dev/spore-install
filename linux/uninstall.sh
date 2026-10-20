@@ -52,7 +52,7 @@ SYSTEM_GROUP="spore"
 APP_SUPPORT="/var/lib/spore-os"
 DATA_DIR="${APP_SUPPORT}/data"
 
-NODES=(spore-shell spore-witness spore-log spore)
+NODES=(spore-shell spore-witness spore-log spore store)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------

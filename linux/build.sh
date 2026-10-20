@@ -164,6 +164,26 @@ HYPHAE_DIR="$DEV/spore-hyphae/hyphae"
 success "hyphae → dist/{amd64,arm64}/bin/hyphae"
 
 # ---------------------------------------------------------------------------
+# 2d. Build store node
+# ---------------------------------------------------------------------------
+step "Building store node"
+
+STORE_DIR="$DEV/spore-store/store"
+[[ -d "$STORE_DIR" ]] || die "store source not found at $STORE_DIR"
+
+(
+    cd "$STORE_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "store tests failed — aborting build"
+    build_linux store
+    for arch in "${ARCHS[@]}"; do
+        mv "store_${arch}" "$DIST_DIR/$arch/bin/store"
+    done
+    cp store.manifest.spore.yaml "$DIST_DIR/nodes/store.manifest.spore.yaml"
+)
+success "store → dist/{amd64,arm64}/bin/store"
+
+# ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 step "Staging installer scripts"

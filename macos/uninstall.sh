@@ -56,7 +56,7 @@ DATA_DIR="${APP_SUPPORT}/data"
 ZSH_START="# >>> Spore terminal hints >>>"
 ZSH_END="# <<< Spore terminal hints <<<"
 
-NODES=(spore-shell spore-witness spore-log spore)
+NODES=(spore-shell spore-witness spore-log spore store)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------
