@@ -49,7 +49,7 @@ NODES=(spore-shell spore-witness spore-log spore)
 # ---------------------------------------------------------------------------
 step "Preparing dist/ directory"
 rm -rf "$DIST_DIR"
-mkdir -p "$DIST_DIR/bin" "$DIST_DIR/nodes"
+mkdir -p "$DIST_DIR/bin" "$DIST_DIR/integrations" "$DIST_DIR/nodes"
 success "dist/ created at $DIST_DIR"
 
 # ---------------------------------------------------------------------------
@@ -60,13 +60,83 @@ success "dist/ created at $DIST_DIR"
 build_universal() {
     local out_name="$1"
     echo "    Building arm64..."
-    GOOS=darwin GOARCH=arm64 go build -o "${out_name}_arm64" .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -a -o "${out_name}_arm64" .
     echo "    Building amd64..."
-    GOOS=darwin GOARCH=amd64 go build -o "${out_name}_amd64" .
+    CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 \
+        CC="clang -arch x86_64" CXX="clang++ -arch x86_64" \
+        go build -a -o "${out_name}_amd64" .
     echo "    Linking universal binary..."
     lipo -create "${out_name}_arm64" "${out_name}_amd64" -output "${out_name}"
     rm -f "${out_name}_arm64" "${out_name}_amd64"
 }
+
+# ---------------------------------------------------------------------------
+# Helper: build spore-client-libs C libraries as fat (arm64 + x86_64).
+# Compiles both slices fresh from source so this step is always idempotent.
+# Usage: make_fat_client_libs <client-libs-root>
+# ---------------------------------------------------------------------------
+make_fat_client_libs() {
+    local root="$1"
+    local dist="$root/dist"
+
+    echo "    Building parser (arm64 + x86_64)..."
+    (
+        cd "$root/parser"
+        local arm_objs=() x86_objs=()
+        for src in source/*.cpp; do
+            clang++ -std=c++17 -arch arm64  -Iinclude -Isource -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_arm.o"
+            clang++ -std=c++17 -arch x86_64 -Iinclude -Isource -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_x86.o"
+            arm_objs+=("${src%.cpp}_arm.o")
+            x86_objs+=("${src%.cpp}_x86.o")
+        done
+        ar rcs "$dist/libspore_parser_arm.a" "${arm_objs[@]}"
+        ar rcs "$dist/libspore_parser_x86.a" "${x86_objs[@]}"
+        rm -f "${arm_objs[@]}" "${x86_objs[@]}"
+    )
+    lipo -create "$dist/libspore_parser_arm.a" "$dist/libspore_parser_x86.a" \
+         -output "$dist/libspore_parser.a"
+    rm -f "$dist/libspore_parser_arm.a" "$dist/libspore_parser_x86.a"
+
+    echo "    Building spore_c (arm64 + x86_64)..."
+    (
+        cd "$root/spore_c"
+        local arm_objs=() x86_objs=()
+        for src in source/*.cpp; do
+            clang++ -std=c++17 -arch arm64  -fPIC -Iinclude -Isource -I../parser/include -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_arm.o"
+            clang++ -std=c++17 -arch x86_64 -fPIC -Iinclude -Isource -I../parser/include -O2 -DNDEBUG -c "$src" -o "${src%.cpp}_x86.o"
+            arm_objs+=("${src%.cpp}_arm.o")
+            x86_objs+=("${src%.cpp}_x86.o")
+        done
+        ar rcs "$dist/libspore_c_arm.a" "${arm_objs[@]}"
+        ar rcs "$dist/libspore_c_x86.a" "${x86_objs[@]}"
+        rm -f "${arm_objs[@]}" "${x86_objs[@]}"
+    )
+    lipo -create "$dist/libspore_c_arm.a" "$dist/libspore_c_x86.a" \
+         -output "$dist/libspore_c.a"
+    rm -f "$dist/libspore_c_arm.a" "$dist/libspore_c_x86.a"
+
+    # Remove any dylibs so the Go linker uses only the static archives.
+    rm -f "$dist"/*.dylib
+}
+
+# ---------------------------------------------------------------------------
+# 0. Run centralized quick checks
+# ---------------------------------------------------------------------------
+step "Running centralized quick checks"
+
+RELEASES_DIR="$DEV/spore-os-releases"
+[[ -d "$RELEASES_DIR" ]] || die "spore-os-releases not found at $RELEASES_DIR"
+
+if ! python3 "$RELEASES_DIR/automation/spore-quick/main.py"; then
+    warn "Quick checks failed — continuing build"
+fi
+
+CLIENT_LIBS_DIR="$DEV/spore-client-libs"
+[[ -d "$CLIENT_LIBS_DIR" ]] || die "spore-client-libs not found at $CLIENT_LIBS_DIR"
+
+step "Making spore-client-libs fat (arm64 + x86_64)"
+make_fat_client_libs "$CLIENT_LIBS_DIR"
+success "spore-client-libs built"
 
 # ---------------------------------------------------------------------------
 # 1. Build spored daemon
@@ -109,6 +179,63 @@ for node in "${NODES[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
+# 2b. Build spore-dialog node
+# ---------------------------------------------------------------------------
+step "Building spore-dialog node"
+
+DIALOG_DIR="$DEV/spore-dialog/spore-dialog"
+[[ -d "$DIALOG_DIR" ]] || die "spore-dialog source not found at $DIALOG_DIR"
+
+(
+    cd "$DIALOG_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "spore-dialog tests failed — aborting build"
+    build_universal spore-dialog
+    cp spore-dialog                          "$DIST_DIR/bin/spore-dialog"
+    cp spore-dialog.manifest.spore.yaml      "$DIST_DIR/nodes/spore-dialog.manifest.spore.yaml"
+    rm -f spore-dialog
+)
+success "spore-dialog → dist/bin/spore-dialog"
+
+# ---------------------------------------------------------------------------
+# 2c. Build hyphae user agent
+# ---------------------------------------------------------------------------
+step "Building hyphae user agent"
+
+HYPHAE_DIR="$DEV/spore-hyphae/hyphae"
+[[ -d "$HYPHAE_DIR" ]] || die "hyphae source not found at $HYPHAE_DIR"
+
+(
+    cd "$HYPHAE_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "hyphae tests failed — aborting build"
+    build_universal hyphae
+    cp hyphae                           "$DIST_DIR/bin/hyphae"
+    cp hyphae.manifest.spore.yaml       "$DIST_DIR/nodes/hyphae.manifest.spore.yaml"
+    rm -f hyphae
+)
+success "hyphae → dist/bin/hyphae"
+
+# ---------------------------------------------------------------------------
+# 2d. Build store node
+# ---------------------------------------------------------------------------
+step "Building store node"
+
+STORE_DIR="$DEV/spore-store/store"
+[[ -d "$STORE_DIR" ]] || die "store source not found at $STORE_DIR"
+
+(
+    cd "$STORE_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "store tests failed — aborting build"
+    build_universal store
+    cp store "$DIST_DIR/bin/store"
+    cp store.manifest.spore.yaml "$DIST_DIR/nodes/store.manifest.spore.yaml"
+    rm -f store
+)
+success "store → dist/bin/store"
+
+# ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 step "Staging installer scripts"
@@ -118,6 +245,13 @@ chmod +x "$DIST_DIR/install.sh" "$DIST_DIR/uninstall.sh"
 success "install.sh and uninstall.sh → dist/"
 
 # ---------------------------------------------------------------------------
+# 3b. Stage terminal integrations
+# ---------------------------------------------------------------------------
+step "Staging terminal integrations"
+cp "$DEV/spore-core-nodes/spore/integrations/zsh.zsh" "$DIST_DIR/integrations/zsh.zsh"
+success "zsh.zsh → dist/integrations/"
+
+# ---------------------------------------------------------------------------
 # 4. Write SHA-256 checksums for all binaries
 # ---------------------------------------------------------------------------
 step "Computing SHA-256 checksums"
@@ -125,7 +259,11 @@ step "Computing SHA-256 checksums"
     cd "$DIST_DIR"
     {
         shasum -a 256 spored
+        shasum -a 256 spored.manifest.spore.yaml
         for f in bin/*; do
+            [[ -f "$f" ]] && shasum -a 256 "$f"
+        done
+        for f in nodes/*; do
             [[ -f "$f" ]] && shasum -a 256 "$f"
         done
     } | tee checksums.sha256

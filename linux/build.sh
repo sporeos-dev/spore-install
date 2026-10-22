@@ -70,6 +70,18 @@ build_linux() {
 }
 
 # ---------------------------------------------------------------------------
+# 0. Run centralized quick checks
+# ---------------------------------------------------------------------------
+step "Running centralized quick checks"
+
+RELEASES_DIR="$DEV/spore-os-releases"
+[[ -d "$RELEASES_DIR" ]] || die "spore-os-releases not found at $RELEASES_DIR"
+
+if ! python3 "$RELEASES_DIR/automation/spore-quick/main.py"; then
+    warn "Quick checks failed — continuing build"
+fi
+
+# ---------------------------------------------------------------------------
 # 1. Build spored daemon
 # ---------------------------------------------------------------------------
 step "Building spored daemon"
@@ -110,6 +122,66 @@ for node in "${NODES[@]}"; do
     )
     success "$node → dist/{amd64,arm64}/bin/$node"
 done
+
+# ---------------------------------------------------------------------------
+# 2b. Build spore-dialog node
+# ---------------------------------------------------------------------------
+step "Building spore-dialog node"
+
+DIALOG_DIR="$DEV/spore-dialog/spore-dialog"
+[[ -d "$DIALOG_DIR" ]] || die "spore-dialog source not found at $DIALOG_DIR"
+
+(
+    cd "$DIALOG_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "spore-dialog tests failed — aborting build"
+    build_linux spore-dialog
+    for arch in "${ARCHS[@]}"; do
+        mv "spore-dialog_${arch}" "$DIST_DIR/$arch/bin/spore-dialog"
+    done
+    cp spore-dialog.manifest.spore.yaml   "$DIST_DIR/nodes/spore-dialog.manifest.spore.yaml"
+)
+success "spore-dialog → dist/{amd64,arm64}/bin/spore-dialog"
+
+# ---------------------------------------------------------------------------
+# 2c. Build hyphae user agent
+# ---------------------------------------------------------------------------
+step "Building hyphae user agent"
+
+HYPHAE_DIR="$DEV/spore-hyphae/hyphae"
+[[ -d "$HYPHAE_DIR" ]] || die "hyphae source not found at $HYPHAE_DIR"
+
+(
+    cd "$HYPHAE_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "hyphae tests failed — aborting build"
+    build_linux hyphae
+    for arch in "${ARCHS[@]}"; do
+        mv "hyphae_${arch}" "$DIST_DIR/$arch/bin/hyphae"
+    done
+    cp hyphae.manifest.spore.yaml   "$DIST_DIR/nodes/hyphae.manifest.spore.yaml"
+)
+success "hyphae → dist/{amd64,arm64}/bin/hyphae"
+
+# ---------------------------------------------------------------------------
+# 2d. Build store node
+# ---------------------------------------------------------------------------
+step "Building store node"
+
+STORE_DIR="$DEV/spore-store/store"
+[[ -d "$STORE_DIR" ]] || die "store source not found at $STORE_DIR"
+
+(
+    cd "$STORE_DIR"
+    echo "  Running tests..."
+    go test ./... -count=1 || die "store tests failed — aborting build"
+    build_linux store
+    for arch in "${ARCHS[@]}"; do
+        mv "store_${arch}" "$DIST_DIR/$arch/bin/store"
+    done
+    cp store.manifest.spore.yaml "$DIST_DIR/nodes/store.manifest.spore.yaml"
+)
+success "store → dist/{amd64,arm64}/bin/store"
 
 # ---------------------------------------------------------------------------
 # 3. Stage installer scripts

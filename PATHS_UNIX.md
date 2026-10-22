@@ -21,23 +21,24 @@ paths — no hardcoded alternatives.
 | Path | Purpose |
 |------|---------|
 | `/Library/Application Support/spore-os/data` | Persistent daemon data |
-| `/Library/Application Support/spore-os/hub` | Hub manifests |
-| `/Library/Application Support/spore-os/manifests` | Node manifests |
-| `/Library/Application Support/spore-os/run` | Runtime files (socket lives here) |
+| `/Library/Application Support/spore-os/store` | Package store (node manifests, one sub-dir per node) |
+| `/Library/Application Support/spore-os/integrations/zsh.zsh` | zsh Tab hint integration, sourced by the installing user's `.zshrc` |
+| `/Library/Application Support/spore-os/nodes.registry.yaml` | Node registry (paths + checksums) |
+| `/Library/Application Support/spore-os/spored.sock` | Unix domain socket (created at runtime by spored) |
 | `/Library/Logs/spore-os` | Daemon and node log files |
-| `/var/run/spore` | Runtime directory (currently unused — see socket note below) |
 
 ---
 
-## macOS Binaries (installed to `/usr/local/bin`, mode 755)
+## macOS Binaries (installed to store subdirectories, mode 755)
 
-| Binary | Source |
-|--------|--------|
-| `/usr/local/bin/spored` | `spored` daemon |
-| `/usr/local/bin/spore` | Main CLI entry point |
-| `/usr/local/bin/spore-shell` | Shell node |
-| `/usr/local/bin/spore-witness` | Witness node |
-| `/usr/local/bin/spore-log` | Log node |
+| Path | Purpose |
+|------|---------|
+| `/Library/Application Support/spore-os/spored` | `spored` daemon |
+| `/Library/Application Support/spore-os/store/spore/spore` | Main CLI entry point |
+| `/Library/Application Support/spore-os/store/spore-shell/spore-shell` | Shell node |
+| `/Library/Application Support/spore-os/store/spore-witness/spore-witness` | Witness node |
+| `/Library/Application Support/spore-os/store/spore-log/spore-log` | Log node |
+| `/Library/Application Support/spore-os/store/store/store` | Store node |
 
 ---
 
@@ -57,8 +58,29 @@ Logs declared in the plist:
 
 | Path | Launches |
 |------|---------|
-| `/Applications/Spore Shell.app` | `/usr/local/bin/spore-shell` via Terminal |
-| `/Applications/Spore Witness.app` | `/usr/local/bin/spore-witness` via Terminal |
+| `/Applications/Spore Shell.app` | `/Library/Application Support/spore-os/store/spore-shell/spore-shell` via Terminal |
+| `/Applications/Spore Witness.app` | `/Library/Application Support/spore-os/store/spore-witness/spore-witness` via Terminal |
+
+---
+
+## macOS Hyphae User Agent
+
+Hyphae runs as a **LaunchAgent** in the logged-in user's GUI session, not as the `_spore` system
+account. The binary lives in the system store (mode 755, world-executable); the per-user plist is
+written by `hyphae install` and registered in the `gui/<uid>` launchd domain by the installer.
+
+| What | Value |
+|------|-------|
+| Agent label | `dev.sporeos.agent` |
+| User plist path | `~/Library/LaunchAgents/dev.sporeos.agent.plist` |
+| launchd domain | `gui/<uid>` |
+| Binary | `/Library/Application Support/spore-os/store/hyphae/hyphae` (mode 755) |
+| `/usr/local/bin` symlink | `/usr/local/bin/hyphae` |
+
+The installer auto-registers the agent for `$SUDO_USER` by running
+`sudo -H -u $SUDO_USER hyphae install` followed by
+`launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/dev.sporeos.agent.plist`.
+On new user accounts, run `hyphae install && hyphae start` as that user.
 
 ---
 
@@ -85,23 +107,23 @@ paths — no hardcoded alternatives.
 | Path | Purpose |
 |------|---------|
 | `/var/lib/spore-os/data` | Persistent daemon data |
-| `/var/lib/spore-os/hub` | Hub manifests |
-| `/var/lib/spore-os/manifests` | Node manifests |
-| `/var/lib/spore-os/run` | Runtime files (socket lives here) |
+| `/var/lib/spore-os/store` | Package store (node manifests, one sub-dir per node) |
+| `/var/lib/spore-os/nodes.registry.yaml` | Node registry (paths + checksums) |
+| `/var/lib/spore-os/spored.sock` | Unix domain socket (created at runtime by spored) |
 | `/var/log/spore-os` | Daemon and node log files |
-| `/run/spore` | Runtime directory (service-scoped transient directory) |
 
 ---
 
-## Linux Binaries (installed to `/usr/local/bin`, mode 755)
+## Linux Binaries (installed to store subdirectories, mode 755)
 
-| Binary | Source |
-|--------|--------|
-| `/usr/local/bin/spored` | `spored` daemon |
-| `/usr/local/bin/spore` | Main CLI entry point |
-| `/usr/local/bin/spore-shell` | Shell node |
-| `/usr/local/bin/spore-witness` | Witness node |
-| `/usr/local/bin/spore-log` | Log node |
+| Path | Purpose |
+|------|---------|
+| `/var/lib/spore-os/spored` | `spored` daemon |
+| `/var/lib/spore-os/store/spore/spore` | Main CLI entry point |
+| `/var/lib/spore-os/store/spore-shell/spore-shell` | Shell node |
+| `/var/lib/spore-os/store/spore-witness/spore-witness` | Witness node |
+| `/var/lib/spore-os/store/spore-log/spore-log` | Log node |
+| `/var/lib/spore-os/store/store/store` | Store node |
 
 ---
 
@@ -121,5 +143,29 @@ Logs declared in the service file:
 
 | Path | Launches |
 |------|---------|
-| `/usr/share/applications/spore-shell.desktop` | `/usr/local/bin/spore-shell` in shell terminal |
-| `/usr/share/applications/spore-witness.desktop` | `/usr/local/bin/spore-witness` in shell terminal |
+| `/usr/share/applications/spore-shell.desktop` | `/var/lib/spore-os/store/spore-shell/spore-shell` in shell terminal |
+| `/usr/share/applications/spore-witness.desktop` | `/var/lib/spore-os/store/spore-witness/spore-witness` in shell terminal |
+
+---
+
+## Linux Hyphae User Agent
+
+Hyphae runs as a **systemd user service** in the logged-in user's session. The binary lives in the
+system store (mode 755, world-executable); the per-user unit file is written by `hyphae install`
+and enabled/started via `systemctl --user`.
+
+| What | Value |
+|------|-------|
+| Agent service | `dev.sporeos.agent.service` |
+| User unit path | `~/.config/systemd/user/dev.sporeos.agent.service` |
+| Binary | `/var/lib/spore-os/store/hyphae/hyphae` (mode 755) |
+| `/usr/local/bin` symlink | `/usr/local/bin/hyphae` |
+
+The installer auto-enables and starts the agent for `$SUDO_USER` when
+`/run/user/<uid>` is available (i.e. the user has an active session). If not,
+the unit is installed and will start automatically at next login.
+On new user accounts, run:
+```
+hyphae install
+systemctl --user enable --now dev.sporeos.agent.service
+```

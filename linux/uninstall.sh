@@ -37,7 +37,8 @@ echo "  ║          SPORE OS — LINUX UNINSTALL CONFIRMATION         ║"
 echo "  ╠══════════════════════════════════════════════════════════╣"
 echo "  ║  This will permanently remove:                           ║"
 echo "  ║    • The spored daemon and all CLI node binaries         ║"
-echo "  ║    • All Spore OS system directories and data            ║"
+echo "  ║    • The hyphae user agent (current user)               ║"
+echo "  ║    • All Spore OS system directories except node data    ║"
 echo "  ║    • The spore system user and group                     ║"
 echo "  ║    • Spore Shell and Spore Witness desktop entries       ║"
 echo "  ╚══════════════════════════════════════════════════════════╝"
@@ -49,8 +50,21 @@ SERVICE_LABEL="dev.sporeos.spored"
 SYSTEM_USER="spore"
 SYSTEM_GROUP="spore"
 APP_SUPPORT="/var/lib/spore-os"
+DATA_DIR="${APP_SUPPORT}/data"
 
-NODES=(spore-shell spore-witness spore-log spore)
+NODES=(spore-shell spore-witness spore-log spore store)
+HYPHAE_AGENT_LABEL="dev.sporeos.agent"
+
+# ---------------------------------------------------------------------------
+# Detect the real (non-root) user who invoked sudo
+# ---------------------------------------------------------------------------
+REAL_USER="${SUDO_USER:-}"
+[[ -z "$REAL_USER" ]] && REAL_USER="$(logname 2>/dev/null || true)"
+[[ "$REAL_USER" == "root" ]] && REAL_USER=""
+if [[ -n "$REAL_USER" ]]; then
+    REAL_UID="$(id -u "$REAL_USER")"
+    REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Stop and disable the systemd service
@@ -74,15 +88,15 @@ fi
 # ---------------------------------------------------------------------------
 step "Attempting spored self-uninstall"
 
-if [[ -x /usr/local/bin/spored ]]; then
-    if /usr/local/bin/spored uninstall 2>/dev/null; then
+if [[ -x "${APP_SUPPORT}/spored" ]]; then
+    if "${APP_SUPPORT}/spored" uninstall 2>/dev/null; then
         success "spored uninstall completed"
     else
         warn "spored uninstall returned non-zero — attempting manual removal"
         rm -f "/etc/systemd/system/${SERVICE_LABEL}.service" && success "Removed service file" || true
     fi
 else
-    warn "/usr/local/bin/spored not found — removing service file directly"
+    warn "${APP_SUPPORT}/spored not found — removing service file directly"
     rm -f "/etc/systemd/system/${SERVICE_LABEL}.service" && success "Removed service file" || true
 fi
 
@@ -90,31 +104,75 @@ fi
 systemctl daemon-reload
 
 # ---------------------------------------------------------------------------
-# 3. Remove binaries from /usr/local/bin
+# 2b. Stop and unregister hyphae user agent
 # ---------------------------------------------------------------------------
-step "Removing binaries from /usr/local/bin"
+step "Stopping hyphae user agent"
 
-for bin in spored "${NODES[@]}"; do
-    target="/usr/local/bin/${bin}"
-    if [[ -f "$target" ]]; then
-        rm -f "$target"
-        success "Removed $target"
+if [[ -n "$REAL_USER" ]]; then
+    AGENT_SERVICE="${HYPHAE_AGENT_LABEL}.service"
+    XDG_RT="/run/user/${REAL_UID}"
+    if [[ -d "$XDG_RT" ]]; then
+        if sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+                systemctl --user is-active "$AGENT_SERVICE" &>/dev/null; then
+            sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+                systemctl --user stop "$AGENT_SERVICE" \
+                && success "Hyphae agent stopped for ${REAL_USER}"
+        else
+            warn "Hyphae agent not active for ${REAL_USER} — skipping stop"
+        fi
+        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+            systemctl --user disable "$AGENT_SERVICE" 2>/dev/null || true
     else
-        warn "$target not found — skipping"
+        warn "${XDG_RT} not found — cannot stop hyphae agent via systemctl (not running?)"
     fi
-done
+    if [[ -x "${APP_SUPPORT}/store/hyphae/hyphae" ]]; then
+        sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null \
+            && success "Hyphae systemd user unit removed" \
+            || warn "hyphae uninstall returned non-zero (unit may already be absent)"
+    else
+        rm -f "$REAL_HOME/.config/systemd/user/$AGENT_SERVICE" \
+            && success "Removed $REAL_HOME/.config/systemd/user/$AGENT_SERVICE" || true
+    fi
+else
+    warn "Could not determine the invoking user — hyphae agent not auto-deregistered."
+    warn "Run as the target user: hyphae uninstall"
+fi
 
 # ---------------------------------------------------------------------------
-# 4. Remove system directories
+# 3. Remove symlinks
 # ---------------------------------------------------------------------------
-step "Removing system directories"
+step "Removing symlinks"
 
-for path in \
-    "$APP_SUPPORT" \
-    "/var/log/spore-os" \
-    "/run/spore" \
-    "/var/run/spore"
-do
+if [[ -L /usr/local/bin/spore ]]; then
+    rm -f /usr/local/bin/spore
+    success "Removed /usr/local/bin/spore"
+else
+    warn "/usr/local/bin/spore not found — skipping"
+fi
+
+if [[ -L /usr/local/bin/hyphae ]]; then
+    rm -f /usr/local/bin/hyphae
+    success "Removed /usr/local/bin/hyphae"
+else
+    warn "/usr/local/bin/hyphae not found — skipping"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Remove system directories while preserving node data
+# ---------------------------------------------------------------------------
+step "Removing system directories (preserving node data)"
+
+if [[ -d "$APP_SUPPORT" ]]; then
+    find "$APP_SUPPORT" -mindepth 1 -maxdepth 1 ! -name "$(basename "$DATA_DIR")" -exec rm -rf {} +
+    success "Removed installed files from $APP_SUPPORT"
+    if [[ -d "$DATA_DIR" ]]; then
+        success "Preserved $DATA_DIR"
+    fi
+else
+    warn "$APP_SUPPORT not found — skipping"
+fi
+
+for path in "/var/log/spore-os"; do
     if [[ -e "$path" ]]; then
         rm -rf "$path"
         success "Removed $path"

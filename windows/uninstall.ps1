@@ -23,7 +23,8 @@ Write-Host "  +----------------------------------------------------------+" -For
 Write-Host "  |          SPORE OS - UNINSTALL CONFIRMATION               |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
 Write-Host "  |  This will permanently remove (User-space):              |" -ForegroundColor Red
-Write-Host "  |    * All user-space binaries and data                    |" -ForegroundColor Red
+Write-Host "  |    * All user-space binaries except node data            |" -ForegroundColor Red
+Write-Host "  |    * The hyphae user agent (Task Scheduler entry)        |" -ForegroundColor Red
 Write-Host "  |    * Spore Shell and Spore Witness Start Menu shortcuts  |" -ForegroundColor Red
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Red
 Write-Host ""
@@ -37,9 +38,13 @@ if ($Confirm -ne 'yes') { Die "Aborted - you must type exactly: yes" }
 $InstallDir   = Join-Path $env:LOCALAPPDATA 'spore-os'
 $BinDir       = Join-Path $InstallDir 'bin'
 $DataDir      = $InstallDir
+$NodeDataDir  = Join-Path $DataDir 'data'
+$StoreDir     = Join-Path $DataDir 'store'
 $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Spore OS'
 
-$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
+$Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore', 'store')
+$HyphaeAgentLabel = 'dev.sporeos.agent'
+$HyphaeExe = Join-Path $StoreDir 'hyphae\hyphae.exe'
 
 # ---------------------------------------------------------------------------
 # 1. Stop running daemon and node processes
@@ -52,6 +57,19 @@ if ($userSpored) {
     Success "User daemon stopped"
 }
 
+# Stop and unregister hyphae agent before killing the process
+if (Test-Path $HyphaeExe) {
+    & $HyphaeExe stop 2>$null
+    & $HyphaeExe uninstall 2>$null
+    if ($LASTEXITCODE -eq 0) { Success "Hyphae agent unregistered" }
+    else { Warn "hyphae uninstall returned non-zero (agent may already be absent)" }
+}
+
+if (Get-Process -Name 'hyphae' -ErrorAction SilentlyContinue) {
+    Stop-Process -Name 'hyphae' -Force -ErrorAction SilentlyContinue
+    Success "Hyphae process stopped"
+}
+
 foreach ($node in $Nodes) {
     if (Get-Process -Name $node -ErrorAction SilentlyContinue) {
         Stop-Process -Name $node -Force -ErrorAction SilentlyContinue
@@ -60,14 +78,19 @@ foreach ($node in $Nodes) {
 }
 
 # ---------------------------------------------------------------------------
-# 2. Remove directories
+# 2. Remove directories while preserving node data
 # ---------------------------------------------------------------------------
-Step "Removing directories"
+Step "Removing directories (preserving node data)"
 
 if (Test-Path $InstallDir) {
     try {
-        Remove-Item -Recurse -Force $InstallDir
-        Success "Removed $InstallDir"
+        Get-ChildItem -LiteralPath $InstallDir -Force |
+            Where-Object { $_.Name -ne 'data' } |
+            Remove-Item -Recurse -Force
+        Success "Removed installed files from $InstallDir"
+        if (Test-Path $NodeDataDir) {
+            Success "Preserved $NodeDataDir"
+        }
     } catch {
         Warn "Could not remove some files in $InstallDir (they may be in use): $_"
     }

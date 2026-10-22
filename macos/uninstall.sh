@@ -37,7 +37,9 @@ echo "  ║          SPORE OS — UNINSTALL CONFIRMATION               ║"
 echo "  ╠══════════════════════════════════════════════════════════╣"
 echo "  ║  This will permanently remove:                           ║"
 echo "  ║    • The spored daemon and all CLI node binaries         ║"
-echo "  ║    • All Spore OS system directories and data            ║"
+echo "  ║    • The hyphae user agent (current user)               ║"
+echo "  ║    • All Spore OS system directories except node data    ║"
+echo "  ║    • The Spore terminal hint integration                 ║"
 echo "  ║    • The _spore system user and group                    ║"
 echo "  ║    • Spore Shell.app and Spore Witness.app               ║"
 echo "  ╚══════════════════════════════════════════════════════════╝"
@@ -50,8 +52,23 @@ SERVICE_LABEL="dev.sporeos.spored"
 SYSTEM_USER="_spore"
 SYSTEM_GROUP="_spore"
 APP_SUPPORT="/Library/Application Support/spore-os"
+DATA_DIR="${APP_SUPPORT}/data"
+ZSH_START="# >>> Spore terminal hints >>>"
+ZSH_END="# <<< Spore terminal hints <<<"
 
-NODES=(spore-shell spore-witness spore-log spore)
+NODES=(spore-shell spore-witness spore-log spore store)
+HYPHAE_AGENT_LABEL="dev.sporeos.agent"
+
+# ---------------------------------------------------------------------------
+# Detect the real (non-root) user who invoked sudo
+# ---------------------------------------------------------------------------
+REAL_USER="${SUDO_USER:-}"
+[[ -z "$REAL_USER" ]] && REAL_USER="$(logname 2>/dev/null || true)"
+[[ "$REAL_USER" == "root" ]] && REAL_USER=""
+if [[ -n "$REAL_USER" ]]; then
+    REAL_UID="$(id -u "$REAL_USER")"
+    REAL_HOME="$(dscl . -read "/Users/$REAL_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Stop the LaunchDaemon
@@ -69,43 +86,96 @@ fi
 # ---------------------------------------------------------------------------
 step "Removing LaunchDaemon plist"
 
-if [[ -x /usr/local/bin/spored ]]; then
-    if /usr/local/bin/spored uninstall 2>/dev/null; then
+if [[ -x "${APP_SUPPORT}/spored" ]]; then
+    if "${APP_SUPPORT}/spored" uninstall 2>/dev/null; then
         success "spored uninstall completed"
     else
         warn "spored uninstall returned non-zero — attempting manual removal"
         rm -f "$PLIST_PATH" && success "Removed $PLIST_PATH" || true
     fi
 else
-    warn "/usr/local/bin/spored not found — removing plist directly"
+    warn "${APP_SUPPORT}/spored not found — removing plist directly"
     rm -f "$PLIST_PATH" && success "Removed $PLIST_PATH" || true
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Remove binaries from /usr/local/bin
+# 2b. Stop and unregister hyphae user agent
 # ---------------------------------------------------------------------------
-step "Removing binaries from /usr/local/bin"
+step "Stopping hyphae user agent"
 
-for bin in spored "${NODES[@]}"; do
-    target="/usr/local/bin/${bin}"
-    if [[ -f "$target" ]]; then
-        rm -f "$target"
-        success "Removed $target"
+if [[ -n "$REAL_USER" ]]; then
+    AGENT_PLIST="$REAL_HOME/Library/LaunchAgents/${HYPHAE_AGENT_LABEL}.plist"
+    if launchctl print "gui/${REAL_UID}/${HYPHAE_AGENT_LABEL}" &>/dev/null; then
+        launchctl bootout "gui/${REAL_UID}" "$AGENT_PLIST" \
+            && success "Hyphae agent stopped for ${REAL_USER}"
     else
-        warn "$target not found — skipping"
+        warn "Hyphae agent not running for ${REAL_USER} — skipping bootout"
     fi
-done
+    if [[ -x "${APP_SUPPORT}/store/hyphae/hyphae" ]]; then
+        sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null \
+            && success "Hyphae LaunchAgent plist removed" \
+            || warn "hyphae uninstall returned non-zero (plist may already be absent)"
+    else
+        rm -f "$AGENT_PLIST" && success "Removed $AGENT_PLIST" || true
+    fi
+else
+    warn "Could not determine the invoking user — hyphae agent not auto-deregistered."
+    warn "Run as the target user: hyphae uninstall"
+fi
 
 # ---------------------------------------------------------------------------
-# 4. Remove system directories
+# 2c. Remove the invoking user's zsh integration hook
 # ---------------------------------------------------------------------------
-step "Removing system directories"
+step "Removing zsh integration hook"
 
-for path in \
-    "$APP_SUPPORT" \
-    "/Library/Logs/spore-os" \
-    "/var/run/spore"
-do
+if [[ -n "$REAL_USER" ]]; then
+    ZSHRC="$REAL_HOME/.zshrc"
+    if [[ -f "$ZSHRC" ]] && grep -Fqx "$ZSH_START" "$ZSHRC"; then
+        sed -i '' "/^${ZSH_START}$/,/^${ZSH_END}$/d" "$ZSHRC"
+        chown "$REAL_USER" "$ZSHRC"
+        success "Removed Spore terminal hints from $ZSHRC"
+    else
+        warn "Spore terminal hints are not enabled in $ZSHRC — skipping"
+    fi
+else
+    warn "Could not determine the invoking user — zsh integration hook not removed."
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Remove symlinks
+# ---------------------------------------------------------------------------
+step "Removing symlinks"
+
+if [[ -L /usr/local/bin/spore ]]; then
+    rm -f /usr/local/bin/spore
+    success "Removed /usr/local/bin/spore"
+else
+    warn "/usr/local/bin/spore not found — skipping"
+fi
+
+if [[ -L /usr/local/bin/hyphae ]]; then
+    rm -f /usr/local/bin/hyphae
+    success "Removed /usr/local/bin/hyphae"
+else
+    warn "/usr/local/bin/hyphae not found — skipping"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Remove system directories while preserving node data
+# ---------------------------------------------------------------------------
+step "Removing system directories (preserving node data)"
+
+if [[ -d "$APP_SUPPORT" ]]; then
+    find "$APP_SUPPORT" -mindepth 1 -maxdepth 1 ! -name "$(basename "$DATA_DIR")" -exec rm -rf {} +
+    success "Removed installed files from $APP_SUPPORT"
+    if [[ -d "$DATA_DIR" ]]; then
+        success "Preserved $DATA_DIR"
+    fi
+else
+    warn "$APP_SUPPORT not found — skipping"
+fi
+
+for path in "/Library/Logs/spore-os"; do
     if [[ -e "$path" ]]; then
         rm -rf "$path"
         success "Removed $path"

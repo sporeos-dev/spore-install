@@ -70,6 +70,19 @@ function Build-WindowsBinaries ([string]$BaseName) {
 }
 
 # ---------------------------------------------------------------------------
+# 0. Run centralized quick checks
+# ---------------------------------------------------------------------------
+Step "Running centralized quick checks"
+
+$ReleasesDir = Join-Path $env:DEV 'spore-os-releases'
+if (-not (Test-Path $ReleasesDir)) { Die "spore-os-releases not found at $ReleasesDir" }
+
+& python "$ReleasesDir\automation\spore-quick\main.py"
+if ($LASTEXITCODE -ne 0) {
+    Warn 'Quick checks failed - continuing build'
+}
+
+# ---------------------------------------------------------------------------
 # 1. Build spored daemon
 # ---------------------------------------------------------------------------
 Step "Building spored daemon"
@@ -122,6 +135,81 @@ foreach ($node in $Nodes) {
 Success 'nodes -> dist\{amd64,arm64}\bin\'
 
 # ---------------------------------------------------------------------------
+# 2b. Build spore-dialog node
+# ---------------------------------------------------------------------------
+Step "Building spore-dialog node"
+
+$DialogDir = Join-Path $env:DEV 'spore-dialog\spore-dialog'
+if (-not (Test-Path $DialogDir)) { Die "spore-dialog source not found at $DialogDir" }
+
+Push-Location $DialogDir
+try {
+    Write-Host "  Running tests..."
+    & go test ./... -count=1
+    if ($LASTEXITCODE -ne 0) { Die "spore-dialog tests failed - aborting build" }
+
+    Build-WindowsBinaries 'spore-dialog'
+
+    foreach ($arch in $Archs) {
+        Move-Item "spore-dialog_${arch}.exe" "$DistDir\$arch\bin\spore-dialog.exe" -Force
+    }
+    Copy-Item 'spore-dialog.manifest.spore.yaml' "$DistDir\nodes\spore-dialog.manifest.spore.yaml"
+} finally {
+    Pop-Location
+}
+Success 'spore-dialog -> dist\{amd64,arm64}\bin\spore-dialog.exe'
+
+# ---------------------------------------------------------------------------
+# 2c. Build hyphae user agent
+# ---------------------------------------------------------------------------
+Step "Building hyphae user agent"
+
+$HyphaeDir = Join-Path $env:DEV 'spore-hyphae\hyphae'
+if (-not (Test-Path $HyphaeDir)) { Die "hyphae source not found at $HyphaeDir" }
+
+Push-Location $HyphaeDir
+try {
+    Write-Host "  Running tests..."
+    & go test ./... -count=1
+    if ($LASTEXITCODE -ne 0) { Die "hyphae tests failed - aborting build" }
+
+    Build-WindowsBinaries 'hyphae'
+
+    foreach ($arch in $Archs) {
+        Move-Item "hyphae_${arch}.exe" "$DistDir\$arch\bin\hyphae.exe" -Force
+    }
+    Copy-Item 'hyphae.manifest.spore.yaml' "$DistDir\nodes\hyphae.manifest.spore.yaml"
+} finally {
+    Pop-Location
+}
+Success 'hyphae -> dist\{amd64,arm64}\bin\hyphae.exe'
+
+# ---------------------------------------------------------------------------
+# 2d. Build store node
+# ---------------------------------------------------------------------------
+Step "Building store node"
+
+$StoreNodeDir = Join-Path $env:DEV 'spore-store\store'
+if (-not (Test-Path $StoreNodeDir)) { Die "store source not found at $StoreNodeDir" }
+
+Push-Location $StoreNodeDir
+try {
+    Write-Host "  Running tests..."
+    & go test ./... -count=1
+    if ($LASTEXITCODE -ne 0) { Die "store tests failed - aborting build" }
+
+    Build-WindowsBinaries 'store'
+
+    foreach ($arch in $Archs) {
+        Move-Item "store_${arch}.exe" "$DistDir\$arch\bin\store.exe" -Force
+    }
+    Copy-Item 'store.manifest.spore.yaml' "$DistDir\nodes\store.manifest.spore.yaml"
+} finally {
+    Pop-Location
+}
+Success 'store -> dist\{amd64,arm64}\bin\store.exe'
+
+# ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 Step "Staging installer scripts"
@@ -145,6 +233,15 @@ foreach ($arch in $Archs) {
         $rel = $_.FullName.Substring($DistDir.Length + 1).Replace('\', '/')
         $lines.Add("$($h.Hash.ToLower())  $rel")
     }
+}
+
+$sporeMani = Get-FileHash "$DistDir\spored.manifest.spore.yaml" -Algorithm SHA256
+$lines.Add("$($sporeMani.Hash.ToLower())  spored.manifest.spore.yaml")
+
+Get-ChildItem "$DistDir\nodes\*.manifest.spore.yaml" | Sort-Object Name | ForEach-Object {
+    $h   = Get-FileHash $_.FullName -Algorithm SHA256
+    $rel = $_.FullName.Substring($DistDir.Length + 1).Replace('\', '/')
+    $lines.Add("$($h.Hash.ToLower())  $rel")
 }
 
 $lines | Set-Content $checksumFile -Encoding UTF8
