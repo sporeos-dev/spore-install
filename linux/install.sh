@@ -28,6 +28,10 @@ die()     { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 [[ "$EUID" -eq 0 ]] || die "install.sh must be run with sudo.  Re-run: sudo $0"
 
+command -v systemctl &>/dev/null || die "systemd is required; this installer does not support non-systemd Linux hosts."
+systemctl --system show-environment &>/dev/null \
+    || die "a running systemd system manager is required; this installer does not support containers or non-systemd Linux hosts."
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Detect architecture
@@ -50,6 +54,16 @@ else
     DIST_DIR="$SCRIPT_DIR"
 fi
 
+CHECKSUM_FILE="$DIST_DIR/checksums.sha256"
+[[ -f "$CHECKSUM_FILE" ]] || die "Checksum file not found: $CHECKSUM_FILE. Install only from a complete release build."
+
+step "Verifying release checksums"
+(
+    cd "$DIST_DIR"
+    sha256sum --check --strict checksums.sha256
+)
+success "Release checksums verified"
+
 SYSTEM_USER="spore"
 SYSTEM_GROUP="spore"
 USER_ID=499
@@ -71,6 +85,7 @@ REAL_USER="${SUDO_USER:-}"
 [[ "$REAL_USER" == "root" ]] && REAL_USER=""
 if [[ -n "$REAL_USER" ]]; then
     REAL_UID="$(id -u "$REAL_USER")"
+    REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -113,6 +128,11 @@ fi
 # 2. Create required system directories
 # ---------------------------------------------------------------------------
 step "Creating system directories"
+
+mkdir -p "${APP_SUPPORT}"
+chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}"
+chmod 755 "${APP_SUPPORT}"
+success "${APP_SUPPORT}"
 
 declare -a DIRS=(
     "${APP_SUPPORT}/store"
@@ -202,6 +222,8 @@ User=${SYSTEM_USER}
 Group=${SYSTEM_GROUP}
 WorkingDirectory=${APP_SUPPORT}
 ExecStart=${APP_SUPPORT}/spored
+CapabilityBoundingSet=CAP_SYS_PTRACE
+AmbientCapabilities=CAP_SYS_PTRACE
 Restart=on-failure
 StandardOutput=append:/var/log/spore-os/${SERVICE_LABEL}.out.log
 StandardError=append:/var/log/spore-os/${SERVICE_LABEL}.err.log
@@ -212,8 +234,7 @@ EOF
 
 systemctl daemon-reload
 systemctl enable ${SERVICE_LABEL}.service
-systemctl restart ${SERVICE_LABEL}.service
-success "systemd service ${SERVICE_LABEL}.service registered and started"
+success "systemd service ${SERVICE_LABEL}.service registered"
 
 # ---------------------------------------------------------------------------
 # 5b. Register hyphae user agent for the invoking user
@@ -222,23 +243,42 @@ step "Registering hyphae user agent"
 
 if [[ -n "$REAL_USER" ]]; then
     AGENT_SERVICE="${HYPHAE_AGENT_LABEL}.service"
-    # kardianos/service writes the unit file to ~/.config/systemd/user/
-    sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" install
-    success "Hyphae systemd user unit written for ${REAL_USER}"
-    # Reload and enable the user unit; start only if XDG_RUNTIME_DIR is available
+    AGENT_UNIT="$REAL_HOME/.config/systemd/user/$AGENT_SERVICE"
+
+    # Keep the invoking user's manager alive after logout so Hyphae works on
+    # headless hosts as well as active desktop sessions.
+    loginctl enable-linger "$REAL_USER"
+    systemctl start "user@${REAL_UID}.service"
+
     XDG_RT="/run/user/${REAL_UID}"
-    if [[ -d "$XDG_RT" ]]; then
-        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
-            systemctl --user daemon-reload
-        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
-            systemctl --user enable "$AGENT_SERVICE"
-        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
-            systemctl --user restart "$AGENT_SERVICE" \
-            && success "Hyphae agent started for ${REAL_USER}" \
-            || warn "Could not start hyphae agent now (no active session?). It will start on next login."
-    else
-        warn "${XDG_RT} not found — hyphae agent enabled but not started (will start on next login)."
+    [[ -S "$XDG_RT/bus" ]] || die "Hyphae user bus was not created at $XDG_RT/bus"
+
+    # kardianos/service does not overwrite an existing unit. Remove the prior
+    # definition first so upgrades pick up service-template changes.
+    if [[ -f "$AGENT_UNIT" ]]; then
+        sudo -H -u "$REAL_USER" \
+            XDG_RUNTIME_DIR="$XDG_RT" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
+            "${APP_SUPPORT}/store/hyphae/hyphae" uninstall \
+            || warn "Could not remove the prior Hyphae user unit; continuing with installation"
     fi
+
+    # kardianos/service writes the unit file to ~/.config/systemd/user/
+    sudo -H -u "$REAL_USER" \
+        XDG_RUNTIME_DIR="$XDG_RT" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
+        "${APP_SUPPORT}/store/hyphae/hyphae" install
+    success "Hyphae systemd user unit written for ${REAL_USER}"
+
+    sudo -H -u "$REAL_USER" \
+        XDG_RUNTIME_DIR="$XDG_RT" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
+        systemctl --user daemon-reload
+    sudo -H -u "$REAL_USER" \
+        XDG_RUNTIME_DIR="$XDG_RT" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
+        systemctl --user enable --now "$AGENT_SERVICE"
+    success "Hyphae agent enabled and started for ${REAL_USER}"
 else
     warn "Could not determine the invoking user — hyphae agent not auto-registered."
     warn "Run as the target user after install: hyphae install && systemctl --user start ${HYPHAE_AGENT_LABEL}.service"
@@ -305,7 +345,15 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Create .desktop launcher entries for XDG-compliant desktop environments
+# 7. Start spored only after the registry has been fully written
+# ---------------------------------------------------------------------------
+step "Starting systemd service (${SERVICE_LABEL})"
+
+systemctl restart ${SERVICE_LABEL}.service
+success "systemd service ${SERVICE_LABEL}.service started"
+
+# ---------------------------------------------------------------------------
+# 8. Create .desktop launcher entries for XDG-compliant desktop environments
 # ---------------------------------------------------------------------------
 step "Creating desktop launcher shortcuts"
 

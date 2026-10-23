@@ -28,6 +28,10 @@ die()     { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 # ---------------------------------------------------------------------------
 [[ "$EUID" -eq 0 ]] || die "uninstall.sh must be run with sudo.  Re-run: sudo $0"
 
+command -v systemctl &>/dev/null || die "systemd is required; this uninstaller does not support non-systemd Linux hosts."
+systemctl --system show-environment &>/dev/null \
+    || die "a running systemd system manager is required; this uninstaller does not support containers or non-systemd Linux hosts."
+
 # ---------------------------------------------------------------------------
 # Confirmation
 # ---------------------------------------------------------------------------
@@ -52,7 +56,6 @@ SYSTEM_GROUP="spore"
 APP_SUPPORT="/var/lib/spore-os"
 DATA_DIR="${APP_SUPPORT}/data"
 
-NODES=(spore-shell spore-witness spore-log spore store)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------
@@ -112,23 +115,34 @@ if [[ -n "$REAL_USER" ]]; then
     AGENT_SERVICE="${HYPHAE_AGENT_LABEL}.service"
     XDG_RT="/run/user/${REAL_UID}"
     if [[ -d "$XDG_RT" ]]; then
-        if sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+        if sudo -u "$REAL_USER" \
+                XDG_RUNTIME_DIR="$XDG_RT" \
+                DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
                 systemctl --user is-active "$AGENT_SERVICE" &>/dev/null; then
-            sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+            sudo -u "$REAL_USER" \
+                XDG_RUNTIME_DIR="$XDG_RT" \
+                DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
                 systemctl --user stop "$AGENT_SERVICE" \
                 && success "Hyphae agent stopped for ${REAL_USER}"
         else
             warn "Hyphae agent not active for ${REAL_USER} — skipping stop"
         fi
-        sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$XDG_RT" \
+        sudo -u "$REAL_USER" \
+            XDG_RUNTIME_DIR="$XDG_RT" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
             systemctl --user disable "$AGENT_SERVICE" 2>/dev/null || true
     else
         warn "${XDG_RT} not found — cannot stop hyphae agent via systemctl (not running?)"
     fi
     if [[ -x "${APP_SUPPORT}/store/hyphae/hyphae" ]]; then
-        sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null \
-            && success "Hyphae systemd user unit removed" \
-            || warn "hyphae uninstall returned non-zero (unit may already be absent)"
+        if sudo -H -u "$REAL_USER" \
+            XDG_RUNTIME_DIR="$XDG_RT" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RT}/bus" \
+            "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null; then
+            success "Hyphae systemd user unit removed"
+        else
+            warn "hyphae uninstall returned non-zero (unit may already be absent)"
+        fi
     else
         rm -f "$REAL_HOME/.config/systemd/user/$AGENT_SERVICE" \
             && success "Removed $REAL_HOME/.config/systemd/user/$AGENT_SERVICE" || true
@@ -172,14 +186,12 @@ else
     warn "$APP_SUPPORT not found — skipping"
 fi
 
-for path in "/var/log/spore-os"; do
-    if [[ -e "$path" ]]; then
-        rm -rf "$path"
-        success "Removed $path"
-    else
-        warn "$path not found — skipping"
-    fi
-done
+if [[ -e "/var/log/spore-os" ]]; then
+    rm -rf "/var/log/spore-os"
+    success "Removed /var/log/spore-os"
+else
+    warn "/var/log/spore-os not found — skipping"
+fi
 
 # ---------------------------------------------------------------------------
 # 5. Remove desktop launcher entries
