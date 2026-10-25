@@ -79,27 +79,59 @@ No packaged release yet. To install from a local build:
 
 ```powershell
 cd windows
-.\build.ps1        # builds dist\ with amd64 and arm64 binaries
+.\build.ps1        # builds dist\ for the native architecture
 ```
 
-Then, run the user-level installer script:
+If migrating from the earlier user-level layout, remove that user's legacy
+state from a non-elevated PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\dist\install.ps1
+.\dist\remove-legacy-install.ps1
 ```
 
-To uninstall:
+Install machine-owned components from an elevated PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\dist\uninstall.ps1
+Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File .\dist\install-machine.ps1'
+```
+
+Then register the current signed-in user from a non-elevated PowerShell:
+
+```powershell
+.\dist\register-user.ps1
+```
+
+To remove the current user's integrations:
+
+```powershell
+.\dist\unregister-user.ps1
+```
+
+To remove the machine service and binaries:
+
+```powershell
+Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File .\dist\uninstall-machine.ps1'
+```
+
+For development, to unregister the current user, remove the existing machine
+installation, rebuild, reinstall, and register that user again in one step,
+run this from a non-elevated developer PowerShell:
+
+```powershell
+.\reinstall.ps1
 ```
 
 > [!NOTE]
 > `build.ps1` requires the `DEV` environment variable to be set, pointing to
 > the directory that contains the `spore-os` and `spore-core-nodes` sibling repos.
-> `install.ps1` and `uninstall.ps1` run at the user-space privilege level and
-> do **not** require administrator / elevated privileges. Remember to restart your terminal session
-> after installing to refresh your active environment's `PATH`!
+> `install-machine.ps1` and `uninstall-machine.ps1` require elevation.
+> `register-user.ps1`, `unregister-user.ps1`, and
+> `remove-legacy-install.ps1` must run from the signed-in user's
+> non-elevated session. The machine installer runs SporeD as the
+> low-privilege `LocalService` account. User registration creates Hyphae's
+> per-user scheduled task. Restart terminal sessions after registration to
+> refresh `PATH` and load PowerShell Tab hints for commands beginning with
+> `spore`. Standard `cmd.exe` remains PATH-only.
 
 ---
 
@@ -107,7 +139,7 @@ powershell -ExecutionPolicy Bypass -File .\dist\uninstall.ps1
 
 - `spored` — the hub daemon
   - macOS: runs as `_spore` via launchd
-  - Windows: runs as a background process under the current user's security context
+  - Windows: runs as `LocalService` via the Service Control Manager
 - `spore`, `spore-shell`, `spore-log`, `spore-witness` — core nodes
 - `store` — store node
 - Platform-specific paths defined in [PATHS_UNIX.md](PATHS_UNIX.md) and [PATHS_WINDOWS.md](PATHS_WINDOWS.md)

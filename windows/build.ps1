@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # build.ps1 — Spore OS Windows CI/CD build script
-# Compiles all binaries for both amd64 and arm64 and stages them in dist\.
+# Compiles native-architecture binaries and stages them in dist\.
 # Does NOT require elevation.  Requires the DEV environment variable to be set.
 
 param(
@@ -29,9 +29,17 @@ if (-not $env:DEV) { Die "DEV environment variable is not set.  Aborting." }
 $ScriptDir = $PSScriptRoot
 $RepoRoot  = Split-Path -Parent $ScriptDir
 $DistDir   = Join-Path $RepoRoot 'dist'
+$PowerShellIntegration = Join-Path $env:DEV 'spore-core-nodes\spore\integrations\powershell.ps1'
+if (-not (Test-Path -LiteralPath $PowerShellIntegration)) {
+    Die "PowerShell integration not found: $PowerShellIntegration"
+}
 
 $Nodes = @('spore-shell', 'spore-witness', 'spore-log', 'spore')
-$Archs = @('amd64', 'arm64')
+$NativeArch = (& go env GOHOSTARCH).Trim()
+if ($LASTEXITCODE -ne 0 -or $NativeArch -notin @('amd64', 'arm64')) {
+    Die "Unsupported native Go architecture: $NativeArch"
+}
+$Archs = @($NativeArch)
 
 # ---------------------------------------------------------------------------
 # Prepare dist\ layout
@@ -42,31 +50,40 @@ foreach ($arch in $Archs) {
     New-Item -ItemType Directory -Force -Path "$DistDir\$arch\bin" | Out-Null
 }
 New-Item -ItemType Directory -Force -Path "$DistDir\nodes" | Out-Null
+New-Item -ItemType Directory -Force -Path "$DistDir\integrations" | Out-Null
 Success "dist\ created at $DistDir"
 
 # ---------------------------------------------------------------------------
-# Helper: build Windows binaries for both target architectures.
+# Helper: build native Windows binaries.
 # Must be called from within the Go project directory.
-# Usage: Build-WindowsBinaries <output-base-name>
+# Usage: Build-WindowsBinaries <output-base-name> [linker-flags]
 # ---------------------------------------------------------------------------
-function Build-WindowsBinaries ([string]$BaseName) {
+function Build-WindowsBinaries ([string]$BaseName, [string]$LinkerFlags = '') {
     $savedGoos   = $env:GOOS
     $savedGoarch = $env:GOARCH
+    $savedCgoEnabled = $env:CGO_ENABLED
 
     foreach ($arch in $Archs) {
         Write-Host "    Building $arch..."
         $env:GOOS   = 'windows'
         $env:GOARCH = $arch
-        & go build -o "${BaseName}_${arch}.exe" .
+        $env:CGO_ENABLED = '1'
+        if ($LinkerFlags) {
+            & go build -ldflags $LinkerFlags -o "${BaseName}_${arch}.exe" .
+        } else {
+            & go build -o "${BaseName}_${arch}.exe" .
+        }
         if ($LASTEXITCODE -ne 0) {
             $env:GOOS   = $savedGoos
             $env:GOARCH = $savedGoarch
+            $env:CGO_ENABLED = $savedCgoEnabled
             Die "Build failed for $BaseName ($arch)"
         }
     }
 
     $env:GOOS   = $savedGoos
     $env:GOARCH = $savedGoarch
+    $env:CGO_ENABLED = $savedCgoEnabled
 }
 
 # ---------------------------------------------------------------------------
@@ -105,7 +122,7 @@ try {
 } finally {
     Pop-Location
 }
-Success 'spored -> dist\{amd64,arm64}\spored.exe'
+Success "spored -> dist\$NativeArch\spored.exe"
 
 # ---------------------------------------------------------------------------
 # 2. Build CLI nodes
@@ -132,7 +149,7 @@ foreach ($node in $Nodes) {
         Pop-Location
     }
 }
-Success 'nodes -> dist\{amd64,arm64}\bin\'
+Success "nodes -> dist\$NativeArch\bin\"
 
 # ---------------------------------------------------------------------------
 # 2b. Build spore-dialog node
@@ -148,7 +165,7 @@ try {
     & go test ./... -count=1
     if ($LASTEXITCODE -ne 0) { Die "spore-dialog tests failed - aborting build" }
 
-    Build-WindowsBinaries 'spore-dialog'
+    Build-WindowsBinaries 'spore-dialog' '-H=windowsgui'
 
     foreach ($arch in $Archs) {
         Move-Item "spore-dialog_${arch}.exe" "$DistDir\$arch\bin\spore-dialog.exe" -Force
@@ -157,7 +174,7 @@ try {
 } finally {
     Pop-Location
 }
-Success 'spore-dialog -> dist\{amd64,arm64}\bin\spore-dialog.exe'
+Success "spore-dialog -> dist\$NativeArch\bin\spore-dialog.exe"
 
 # ---------------------------------------------------------------------------
 # 2c. Build hyphae user agent
@@ -173,7 +190,7 @@ try {
     & go test ./... -count=1
     if ($LASTEXITCODE -ne 0) { Die "hyphae tests failed - aborting build" }
 
-    Build-WindowsBinaries 'hyphae'
+    Build-WindowsBinaries 'hyphae' '-H=windowsgui'
 
     foreach ($arch in $Archs) {
         Move-Item "hyphae_${arch}.exe" "$DistDir\$arch\bin\hyphae.exe" -Force
@@ -182,7 +199,7 @@ try {
 } finally {
     Pop-Location
 }
-Success 'hyphae -> dist\{amd64,arm64}\bin\hyphae.exe'
+Success "hyphae -> dist\$NativeArch\bin\hyphae.exe"
 
 # ---------------------------------------------------------------------------
 # 2d. Build store node
@@ -207,15 +224,19 @@ try {
 } finally {
     Pop-Location
 }
-Success 'store -> dist\{amd64,arm64}\bin\store.exe'
+Success "store -> dist\$NativeArch\bin\store.exe"
 
 # ---------------------------------------------------------------------------
 # 3. Stage installer scripts
 # ---------------------------------------------------------------------------
 Step "Staging installer scripts"
-Copy-Item "$ScriptDir\install.ps1"   "$DistDir\install.ps1"
-Copy-Item "$ScriptDir\uninstall.ps1" "$DistDir\uninstall.ps1"
-Success "install.ps1 and uninstall.ps1 -> dist\"
+Copy-Item "$ScriptDir\install-machine.ps1" "$DistDir\install-machine.ps1"
+Copy-Item "$ScriptDir\register-user.ps1" "$DistDir\register-user.ps1"
+Copy-Item "$ScriptDir\unregister-user.ps1" "$DistDir\unregister-user.ps1"
+Copy-Item "$ScriptDir\uninstall-machine.ps1" "$DistDir\uninstall-machine.ps1"
+Copy-Item "$ScriptDir\remove-legacy-install.ps1" "$DistDir\remove-legacy-install.ps1"
+Copy-Item $PowerShellIntegration "$DistDir\integrations\powershell.ps1"
+Success "Windows scripts -> dist\"
 
 # ---------------------------------------------------------------------------
 # 4. Write SHA-256 checksums for all binaries
