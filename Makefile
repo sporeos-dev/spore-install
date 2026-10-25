@@ -14,7 +14,7 @@ else
 endif
 
 SCRIPTS := macos/build.sh macos/install.sh macos/uninstall.sh \
-           linux/build.sh linux/install.sh linux/uninstall.sh
+	       linux/build.sh linux/install.sh linux/reinstall.sh linux/uninstall.sh
 
 .DEFAULT_GOAL := check
 
@@ -32,15 +32,13 @@ else ifeq ($(PLATFORM),macos)
 else ifeq ($(PLATFORM),linux)
 	@echo "==> [Linux] Installing dependencies..."
 	@if command -v apt-get >/dev/null; then \
-		sudo apt-get update && sudo apt-get install -y shellcheck; \
+		sudo apt-get update && sudo apt-get install -y shellcheck build-essential; \
 	elif command -v dnf >/dev/null; then \
-		sudo dnf install -y shellcheck; \
+		sudo dnf install -y shellcheck gcc-c++; \
 	elif command -v yum >/dev/null; then \
-		sudo yum install -y shellcheck; \
+		sudo yum install -y shellcheck gcc-c++; \
 	elif command -v zypper >/dev/null; then \
-		sudo zypper install -y shellcheck; \
-	elif command -v apk >/dev/null; then \
-		sudo apk add shellcheck; \
+		sudo zypper install -y shellcheck gcc-c++; \
 	else \
 		echo "Please install 'shellcheck' manually via your package manager."; \
 		exit 1; \

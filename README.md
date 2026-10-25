@@ -53,12 +53,18 @@ sudo macos/uninstall.sh
 
 No packaged release yet. To install from a local build:
 
+> [!NOTE]
+> The Linux installer requires a running systemd system manager. It supports
+> systemd-based Ubuntu, Debian, Fedora, and openSUSE hosts; it does not support
+> non-systemd distributions or containers without systemd.
+
 ```sh
-# Setup/install dependencies (shellcheck optional for development)
+# Setup build dependencies (Go, Python 3, make, and a C++ compiler are also required)
 make setup
 
-# Build-linux stages both amd64 and arm64 binaries in dist/
-make release-linux
+# Build the native host architecture into dist/amd64 or dist/arm64.
+# Build releases separately on amd64 and arm64 Linux CI runners.
+make release
 
 # Install to system paths (detects host architecture automatically),
 # creates spore system user, registers and starts spored systemd service
@@ -69,6 +75,13 @@ To uninstall:
 
 ```sh
 sudo dist/uninstall.sh
+```
+
+For a development reinstall that removes the current installation, rebuilds the
+native client libraries, and installs the fresh `dist/` output:
+
+```sh
+linux/reinstall.sh
 ```
 
 ---

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # build.sh — Spore OS Linux CI/CD build script
-# Compiles all binaries for amd64 and arm64 and stages them in dist/.
+# Compiles all binaries for the native Linux architecture and stages them in dist/.
 # Does NOT require sudo. Requires the DEV environment variable to be set.
 
 set -euo pipefail
@@ -43,7 +43,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST_DIR="$REPO_ROOT/dist"
 
 NODES=(spore-shell spore-witness spore-log spore)
-ARCHS=(amd64 arm64)
+
+case "$(uname -m)" in
+    x86_64)        ARCHS=(amd64) ;;
+    aarch64|arm64) ARCHS=(arm64) ;;
+    *)             die "Unsupported Linux architecture: $(uname -m)" ;;
+esac
 
 # ---------------------------------------------------------------------------
 # Prepare dist/ layout
@@ -57,7 +62,9 @@ mkdir -p "$DIST_DIR/nodes"
 success "dist/ created at $DIST_DIR"
 
 # ---------------------------------------------------------------------------
-# Helper: build a Linux binary for a specific architecture
+# Helper: build a Linux binary for the current architecture.
+# spored links the native C++ parser library, so a release must be built on a
+# matching amd64 or arm64 Linux host. CI produces one architecture per runner.
 # Must be called from within the Go project directory.
 # Usage: build_linux <output-base-name>
 # ---------------------------------------------------------------------------
@@ -65,7 +72,7 @@ build_linux() {
     local base_name="$1"
     for arch in "${ARCHS[@]}"; do
         echo "    Building $arch..."
-        GOOS=linux GOARCH="$arch" go build -o "${base_name}_${arch}" .
+        CGO_ENABLED=1 GOOS=linux GOARCH="$arch" go build -o "${base_name}_${arch}" .
     done
 }
 
@@ -80,6 +87,15 @@ RELEASES_DIR="$DEV/spore-os-releases"
 if ! python3 "$RELEASES_DIR/automation/spore-quick/main.py"; then
     warn "Quick checks failed — continuing build"
 fi
+
+CLIENT_LIBS_DIR="$DEV/spore-client-libs"
+[[ -d "$CLIENT_LIBS_DIR/parser" ]] || die "spore-client-libs parser not found at $CLIENT_LIBS_DIR/parser"
+[[ -d "$CLIENT_LIBS_DIR/spore_c" ]] || die "spore-client-libs C interface not found at $CLIENT_LIBS_DIR/spore_c"
+
+step "Building native spore client libraries"
+make -C "$CLIENT_LIBS_DIR/parser" release
+make -C "$CLIENT_LIBS_DIR/spore_c" release
+success "Native spore client libraries built"
 
 # ---------------------------------------------------------------------------
 # 1. Build spored daemon
@@ -99,7 +115,7 @@ SPORED_DIR="$DEV/spore-os/spored"
     done
     cp spored.manifest.spore.yaml    "$DIST_DIR/spored.manifest.spore.yaml"
 )
-success "spored → dist/{amd64,arm64}/spored"
+success "spored → dist/${ARCHS[0]}/spored"
 
 # ---------------------------------------------------------------------------
 # 2. Build CLI nodes
@@ -120,7 +136,7 @@ for node in "${NODES[@]}"; do
         done
         cp "${node}.manifest.spore.yaml"    "$DIST_DIR/nodes/${node}.manifest.spore.yaml"
     )
-    success "$node → dist/{amd64,arm64}/bin/$node"
+    success "$node → dist/${ARCHS[0]}/bin/$node"
 done
 
 # ---------------------------------------------------------------------------
@@ -141,7 +157,7 @@ DIALOG_DIR="$DEV/spore-dialog/spore-dialog"
     done
     cp spore-dialog.manifest.spore.yaml   "$DIST_DIR/nodes/spore-dialog.manifest.spore.yaml"
 )
-success "spore-dialog → dist/{amd64,arm64}/bin/spore-dialog"
+success "spore-dialog → dist/${ARCHS[0]}/bin/spore-dialog"
 
 # ---------------------------------------------------------------------------
 # 2c. Build hyphae user agent
@@ -161,7 +177,7 @@ HYPHAE_DIR="$DEV/spore-hyphae/hyphae"
     done
     cp hyphae.manifest.spore.yaml   "$DIST_DIR/nodes/hyphae.manifest.spore.yaml"
 )
-success "hyphae → dist/{amd64,arm64}/bin/hyphae"
+success "hyphae → dist/${ARCHS[0]}/bin/hyphae"
 
 # ---------------------------------------------------------------------------
 # 2d. Build store node
@@ -181,7 +197,7 @@ STORE_DIR="$DEV/spore-store/store"
     done
     cp store.manifest.spore.yaml "$DIST_DIR/nodes/store.manifest.spore.yaml"
 )
-success "store → dist/{amd64,arm64}/bin/store"
+success "store → dist/${ARCHS[0]}/bin/store"
 
 # ---------------------------------------------------------------------------
 # 3. Stage installer scripts

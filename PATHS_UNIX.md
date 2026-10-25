@@ -161,9 +161,10 @@ and enabled/started via `systemctl --user`.
 | Binary | `/var/lib/spore-os/store/hyphae/hyphae` (mode 755) |
 | `/usr/local/bin` symlink | `/usr/local/bin/hyphae` |
 
-The installer auto-enables and starts the agent for `$SUDO_USER` when
-`/run/user/<uid>` is available (i.e. the user has an active session). If not,
-the unit is installed and will start automatically at next login.
+The installer auto-enables lingering for `$SUDO_USER`, starts that user's
+systemd manager, and enables and starts the agent. This keeps Hyphae available
+after logout and on headless hosts. Uninstall removes only the Spore unit and
+preserves the user's lingering setting because it may be used by other services.
 On new user accounts, run:
 ```
 hyphae install

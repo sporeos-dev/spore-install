@@ -56,7 +56,6 @@ DATA_DIR="${APP_SUPPORT}/data"
 ZSH_START="# >>> Spore terminal hints >>>"
 ZSH_END="# <<< Spore terminal hints <<<"
 
-NODES=(spore-shell spore-witness spore-log spore store)
 HYPHAE_AGENT_LABEL="dev.sporeos.agent"
 
 # ---------------------------------------------------------------------------
@@ -112,9 +111,11 @@ if [[ -n "$REAL_USER" ]]; then
         warn "Hyphae agent not running for ${REAL_USER} — skipping bootout"
     fi
     if [[ -x "${APP_SUPPORT}/store/hyphae/hyphae" ]]; then
-        sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null \
-            && success "Hyphae LaunchAgent plist removed" \
-            || warn "hyphae uninstall returned non-zero (plist may already be absent)"
+        if sudo -H -u "$REAL_USER" "${APP_SUPPORT}/store/hyphae/hyphae" uninstall 2>/dev/null; then
+            success "Hyphae LaunchAgent plist removed"
+        else
+            warn "hyphae uninstall returned non-zero (plist may already be absent)"
+        fi
     else
         rm -f "$AGENT_PLIST" && success "Removed $AGENT_PLIST" || true
     fi
@@ -175,14 +176,12 @@ else
     warn "$APP_SUPPORT not found — skipping"
 fi
 
-for path in "/Library/Logs/spore-os"; do
-    if [[ -e "$path" ]]; then
-        rm -rf "$path"
-        success "Removed $path"
-    else
-        warn "$path not found — skipping"
-    fi
-done
+if [[ -e "/Library/Logs/spore-os" ]]; then
+    rm -rf "/Library/Logs/spore-os"
+    success "Removed /Library/Logs/spore-os"
+else
+    warn "/Library/Logs/spore-os not found — skipping"
+fi
 
 # ---------------------------------------------------------------------------
 # 5. Remove .app bundles
