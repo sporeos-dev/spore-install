@@ -176,6 +176,7 @@ HYPHAE_DIR="$DEV/spore-hyphae/hyphae"
         mv "hyphae_${arch}" "$DIST_DIR/$arch/bin/hyphae"
     done
     cp hyphae.manifest.spore.yaml   "$DIST_DIR/nodes/hyphae.manifest.spore.yaml"
+    cp "$HYPHAE_DIR/linux/dev.sporeos.hyphae.policy" "$DIST_DIR/dev.sporeos.hyphae.policy"
 )
 success "hyphae → dist/${ARCHS[0]}/bin/hyphae"
 

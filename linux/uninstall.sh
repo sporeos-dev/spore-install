@@ -152,7 +152,6 @@ else
     warn "Run as the target user: hyphae uninstall"
 fi
 
-# ---------------------------------------------------------------------------
 # 3. Remove symlinks
 # ---------------------------------------------------------------------------
 step "Removing symlinks"
@@ -169,6 +168,14 @@ if [[ -L /usr/local/bin/hyphae ]]; then
     success "Removed /usr/local/bin/hyphae"
 else
     warn "/usr/local/bin/hyphae not found — skipping"
+fi
+
+POLKIT_POLICY="/usr/share/polkit-1/actions/dev.sporeos.hyphae.policy"
+if [[ -f "$POLKIT_POLICY" ]]; then
+    rm -f "$POLKIT_POLICY"
+    success "Removed Polkit authorization action"
+else
+    warn "Polkit authorization action not found — skipping"
 fi
 
 # ---------------------------------------------------------------------------

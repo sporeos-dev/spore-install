@@ -64,6 +64,12 @@ step "Verifying release checksums"
 )
 success "Release checksums verified"
 
+POLKIT_POLICY="/usr/share/polkit-1/actions/dev.sporeos.hyphae.policy"
+[[ -f "$DIST_DIR/dev.sporeos.hyphae.policy" ]] \
+    || die "Polkit action not found: $DIST_DIR/dev.sporeos.hyphae.policy"
+install -D -m 644 "$DIST_DIR/dev.sporeos.hyphae.policy" "$POLKIT_POLICY"
+success "Registered Polkit authorization action"
+
 SYSTEM_USER="spore"
 SYSTEM_GROUP="spore"
 USER_ID=499
@@ -177,7 +183,7 @@ for node in "${NODES[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
-# 3b. Symlink spore CLI into /usr/local/bin
+# 3a. Symlink spore CLI into /usr/local/bin
 # ---------------------------------------------------------------------------
 step "Symlinking spore CLI to /usr/local/bin"
 
@@ -185,7 +191,7 @@ ln -sf "${APP_SUPPORT}/store/spore/spore" /usr/local/bin/spore
 success "Symlinked: /usr/local/bin/spore → store/spore/spore"
 
 # ---------------------------------------------------------------------------
-# 3c. Symlink hyphae into /usr/local/bin
+# 3b. Symlink hyphae into /usr/local/bin
 # ---------------------------------------------------------------------------
 step "Symlinking hyphae to /usr/local/bin"
 
