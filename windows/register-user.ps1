@@ -85,6 +85,22 @@ if (-not $service -or $service.Status -ne 'Running') {
     Die "SporeD service is not running. Run install-machine.ps1 from an elevated PowerShell session first."
 }
 
+$existingHyphaeTask = Get-ScheduledTask -TaskName $HyphaeTaskName -ErrorAction SilentlyContinue
+if ($existingHyphaeTask -and $existingHyphaeTask.State -eq 'Running') {
+    Step 'Stopping the existing Hyphae agent'
+    Stop-ScheduledTask -InputObject $existingHyphaeTask
+    for ($attempt = 0; $attempt -lt 40; $attempt++) {
+        Start-Sleep -Milliseconds 250
+        $existingHyphaeTask = Get-ScheduledTask -TaskName $HyphaeTaskName
+        if ($existingHyphaeTask.State -ne 'Running') {
+            break
+        }
+    }
+    if ($existingHyphaeTask.State -eq 'Running') {
+        Die 'Timed out waiting for the existing Hyphae agent to stop.'
+    }
+}
+
 Step "Registering Hyphae for $CurrentUser"
 $action = New-ScheduledTaskAction -Execute $HyphaeExe -WorkingDirectory (Split-Path -Parent $HyphaeExe)
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
