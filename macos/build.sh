@@ -241,8 +241,9 @@ success "store → dist/bin/store"
 step "Staging installer scripts"
 cp "$SCRIPT_DIR/install.sh"   "$DIST_DIR/install.sh"
 cp "$SCRIPT_DIR/uninstall.sh" "$DIST_DIR/uninstall.sh"
+cp "$SCRIPT_DIR/install.md"   "$DIST_DIR/install.md"
 chmod +x "$DIST_DIR/install.sh" "$DIST_DIR/uninstall.sh"
-success "install.sh and uninstall.sh → dist/"
+success "install.sh, uninstall.sh and install.md → dist/"
 
 # ---------------------------------------------------------------------------
 # 4. Write SHA-256 checksums for all binaries

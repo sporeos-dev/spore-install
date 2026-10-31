@@ -114,6 +114,11 @@ done
 # ---------------------------------------------------------------------------
 step "Installing binaries to store"
 
+# Downloaded archives are tagged com.apple.quarantine, which makes Gatekeeper
+# block these unnotarized binaries.  Clear it from the source and the installed copies.
+xattr -dr com.apple.quarantine "$DIST_DIR" 2>/dev/null || true
+success "Cleared quarantine attribute from ${DIST_DIR}"
+
 install -m 755 "$DIST_DIR/spored" "${APP_SUPPORT}/spored"
 chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/spored"
 success "Installed spored → ${APP_SUPPORT}/spored"
@@ -124,6 +129,8 @@ for node in "${NODES[@]}"; do
     chown "${SYSTEM_USER}:${SYSTEM_GROUP}" "${APP_SUPPORT}/store/${node}/${node}"
     success "Installed $node → store/${node}/${node}"
 done
+
+xattr -dr com.apple.quarantine "${APP_SUPPORT}" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 3a. Symlink spore CLI into /usr/local/bin
