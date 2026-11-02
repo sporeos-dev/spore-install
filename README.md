@@ -140,7 +140,9 @@ run this from a non-elevated developer PowerShell:
 > `install-machine.ps1` and `uninstall-machine.ps1` require elevation.
 > `register-user.ps1`, `unregister-user.ps1`, and
 > `remove-legacy-install.ps1` must run from the signed-in user's
-> non-elevated session. The machine installer runs SporeD as the
+> non-elevated session. The machine installer clears Windows download blocks
+> from the distribution; see `dist\readme.md` for a bootstrap command if
+> Windows blocks the installer itself. The machine installer runs SporeD as the
 > low-privilege `LocalService` account. User registration creates Hyphae's
 > per-user scheduled task. Restart terminal sessions after registration to
 > refresh `PATH` and load PowerShell Tab hints for commands beginning with

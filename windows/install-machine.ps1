@@ -110,6 +110,10 @@ foreach ($requiredPath in @(
     }
 }
 
+Step "Clearing Windows download blocks from the distribution"
+Get-ChildItem -LiteralPath $DistDir -Recurse -File -Force | Unblock-File
+Success "Cleared download blocks from $DistDir"
+
 Step "Stopping the existing SporeD service"
 Remove-SporeDService
 Remove-LegacyHyphaeTask

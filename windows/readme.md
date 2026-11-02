@@ -1,49 +1,55 @@
 # Install Spore OS (Windows)
 
-Extract the release archive and open its `dist` folder in PowerShell:
+Extract the archive and open `dist` in PowerShell:
 
 ```powershell
 Expand-Archive .\spore-os-install-windows.zip -DestinationPath .
 cd .\dist
 ```
 
-If upgrading from the old user-level installation, first run the following
-in that user's **non-elevated** PowerShell. It permanently removes the
-legacy user directory and its data; back up anything you need first.
+The installer clears Windows download blocks. If Windows blocks the installer
+itself, unblock the files first, **only for a release you trust**. Run this
+only in `dist`: it unblocks every file there.
+
+```powershell
+Get-ChildItem -LiteralPath . -Recurse -File -Force | Unblock-File
+```
+
+Security software or organizational policies may still block files; check the
+warning or contact your administrator. The commands below bypass the execution
+policy only for the individual PowerShell process.
+
+If upgrading from the old user-level installation, first run this in the
+user's **non-elevated** PowerShell. It permanently deletes legacy data;
+back it up first.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\remove-legacy-install.ps1
 ```
 
-Open an **administrator** PowerShell, change to the extracted `dist` folder,
-and install the machine components:
+In an **administrator** PowerShell in `dist`, install the machine components:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-machine.ps1
 ```
 
-Then, in each signed-in user's **non-elevated** PowerShell in `dist`, run:
+In each user's **non-elevated** PowerShell in `dist`, register the user:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\register-user.ps1
 ```
 
-The machine installer starts SporeD as `LocalService`. User registration
-starts Hyphae and sets it to run at sign-in, adds Start menu shortcuts and
-the `spore` command to the user PATH, and enables PowerShell Tab hints.
-Restart terminal sessions to load the PATH and hints.
+Restart terminals to load PATH and PowerShell Tab hints.
 
 ## Uninstall
 
-From each user's **non-elevated** PowerShell in `dist`, remove their
-integrations:
+In each user's **non-elevated** PowerShell in `dist`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\unregister-user.ps1
 ```
 
-Then, from an **administrator** PowerShell in `dist`, remove the machine
-service and binaries:
+Then, in an **administrator** PowerShell in `dist`:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\uninstall-machine.ps1
