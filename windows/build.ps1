@@ -54,7 +54,7 @@ New-Item -ItemType Directory -Force -Path "$DistDir\integrations" | Out-Null
 Success "dist\ created at $DistDir"
 
 # ---------------------------------------------------------------------------
-# Helper: build native Windows binaries.
+# Helper: build native Windows binaries with the C/C++ runtime linked in.
 # Must be called from within the Go project directory.
 # Usage: Build-WindowsBinaries <output-base-name> [linker-flags]
 # ---------------------------------------------------------------------------
@@ -68,11 +68,8 @@ function Build-WindowsBinaries ([string]$BaseName, [string]$LinkerFlags = '') {
         $env:GOOS   = 'windows'
         $env:GOARCH = $arch
         $env:CGO_ENABLED = '1'
-        if ($LinkerFlags) {
-            & go build -ldflags $LinkerFlags -o "${BaseName}_${arch}.exe" .
-        } else {
-            & go build -o "${BaseName}_${arch}.exe" .
-        }
+        $allLinkerFlags = "$LinkerFlags -extldflags=-static".Trim()
+        & go build -ldflags $allLinkerFlags -o "${BaseName}_${arch}.exe" .
         if ($LASTEXITCODE -ne 0) {
             $env:GOOS   = $savedGoos
             $env:GOARCH = $savedGoarch

@@ -85,6 +85,10 @@ The installer adds `%ProgramData%\spore-os\store\spore` to the invoking user's
 `PATH` for the `spore` CLI. It must not expose a user-writable installation
 location.
 
+The Windows build statically links the compiler's C/C++ support libraries into
+the distributed executables. Service-launched nodes must not depend on
+compiler runtime DLLs in a user's development environment or `PATH`.
+
 ---
 
 ## SporeD service
