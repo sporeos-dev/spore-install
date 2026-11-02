@@ -232,6 +232,7 @@ Copy-Item "$ScriptDir\register-user.ps1" "$DistDir\register-user.ps1"
 Copy-Item "$ScriptDir\unregister-user.ps1" "$DistDir\unregister-user.ps1"
 Copy-Item "$ScriptDir\uninstall-machine.ps1" "$DistDir\uninstall-machine.ps1"
 Copy-Item "$ScriptDir\remove-legacy-install.ps1" "$DistDir\remove-legacy-install.ps1"
+Copy-Item "$ScriptDir\readme.md" "$DistDir\readme.md"
 Copy-Item $PowerShellIntegration "$DistDir\integrations\powershell.ps1"
 Success "Windows scripts -> dist\"
 
