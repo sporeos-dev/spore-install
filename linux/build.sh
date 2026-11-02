@@ -206,7 +206,8 @@ success "store → dist/${ARCHS[0]}/bin/store"
 step "Staging installer scripts"
 cp "$SCRIPT_DIR/install.sh" "$DIST_DIR/install.sh"
 cp "$SCRIPT_DIR/uninstall.sh" "$DIST_DIR/uninstall.sh"
-success "Staged install.sh and uninstall.sh to dist/"
+cp "$SCRIPT_DIR/readme.md" "$DIST_DIR/readme.md"
+success "Staged install.sh, uninstall.sh and readme.md to dist/"
 
 # ---------------------------------------------------------------------------
 # 4. Generate SHA-256 checksums
@@ -214,7 +215,7 @@ success "Staged install.sh and uninstall.sh to dist/"
 step "Generating SHA-256 checksums"
 (
     cd "$DIST_DIR"
-    find . -type f ! -name "checksums.sha256" ! -name "install.sh" ! -name "uninstall.sh" | sort | while read -r file; do
+    find . -type f ! -name "checksums.sha256" ! -name "install.sh" ! -name "uninstall.sh" ! -name "readme.md" | sort | while read -r file; do
         sha256sum "$file" | sed 's/  \.\//  /'
     done > checksums.sha256
 )
